@@ -29,7 +29,9 @@ class ContrastiveGenerator:
         if self.processing_class.pad_token is None:    
             self.processing_class.pad_token = self.processing_class.eos_token    
         self.pad_token_id = self.processing_class.pad_token_id    
-        self.eos_token_id = self.processing_class.eos_token_id    
+        self.eos_token_id = self.processing_class.eos_token_id 
+
+        self.device = self.target_model.device   
 
     def encode(self, text: str | list[str], **kwargs) -> dict:    
         """  
@@ -47,23 +49,6 @@ class ContrastiveGenerator:
             return_tensors="pt",    
             padding=True,    
             add_special_tokens=False,    
-            **kwargs    
-        )    
-        
-    def decode(self, token_ids: torch.Tensor, **kwargs) -> list[str]:    
-        """  
-        Convert token IDs back to text strings.  
-          
-        Args:  
-            token_ids: Tensor of token IDs to decode.  
-            **kwargs: Additional decoding arguments.  
-              
-        Returns:  
-            List of decoded text strings.  
-        """  
-        return self.processing_class.batch_decode(    
-            token_ids,    
-            skip_special_tokens=True,    
             **kwargs    
         )    
     
@@ -197,17 +182,15 @@ class ContrastiveGenerator:
         Returns:    
             List of generated text strings.  
         """    
-        encoded = self.encode(prompts)    
-        input_ids = encoded["input_ids"]    
-        attention_mask = encoded["attention_mask"]    
-            
-        device = self.target_model.device    
-        input_ids = input_ids.to(device)    
-        attention_mask = attention_mask.to(device)    
-        batch_size = input_ids.shape[0]    
-            
+        encoded_inputs = self.processing_class(prompts, return_tensors="pt", padding=True, **kwargs).to(self.device)     
+        input_ids = encoded_inputs["input_ids"]    
+        attention_mask = encoded_inputs["attention_mask"]    
+
+        batch_size = input_ids.shape[0]
+        prompt_len = input_ids.shape[1]
+             
         past_key_values = {'target': None, 'tuned': None, 'base': None}    
-        unfinished = torch.ones(batch_size, dtype=torch.long, device=device)    
+        unfinished = torch.ones(batch_size, dtype=torch.long, device=self.device)    
             
         for _ in range(max_new_tokens):    
             target_out, tuned_out, base_out = self._forward_all_models(    
@@ -235,11 +218,11 @@ class ContrastiveGenerator:
             input_ids = torch.cat([input_ids, next_tokens.unsqueeze(-1)], dim=-1)    
             attention_mask = torch.cat([    
                 attention_mask,    
-                torch.ones((batch_size, 1), dtype=torch.long, device=device)    
+                torch.ones((batch_size, 1), dtype=torch.long, device=self.device)    
             ], dim=-1)    
                 
             unfinished = unfinished * (next_tokens != self.eos_token_id).long()    
             if unfinished.max() == 0:    
                 break    
             
-        return self.decode(input_ids)
+        return self.processing_class.batch_decode(input_ids[:, prompt_len:], skip_special_tokens=True,**kwargs)

@@ -63,8 +63,9 @@ class RewardGuidedGenerator:
         """  
         # Encode policy model inputs  
         encoded_inputs = self.policy_tokenizer(prompts, return_tensors="pt", padding=True).to(self.device)    
-        input_ids = encoded_inputs["input_ids"]    
-        batch_size = input_ids.shape[0]    
+        input_ids = encoded_inputs["input_ids"] 
+        batch_size = input_ids.shape[0]  
+        prompt_len = input_ids.shape[1]  
             
         policy_cache = DynamicCache(config=self.policy_model.config)    
         policy_attention_mask = encoded_inputs["attention_mask"]    
@@ -135,7 +136,7 @@ class RewardGuidedGenerator:
                 batch_size=batch_size     
             )      
             
-        return self.policy_tokenizer.batch_decode(input_ids, skip_special_tokens=True)  
+        return self.policy_tokenizer.batch_decode(input_ids[:, prompt_len:], skip_special_tokens=True)  
       
     def _init_reward_cache(  
         self,    

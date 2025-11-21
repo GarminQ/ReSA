@@ -26,7 +26,7 @@ if __name__ == "__main__":
         tuned_model=target_model,  
         base_model=base_model,
         processing_class=tokenizer,  
-        weight=-1.0  
+        weight=-0.3  
     )  
 
     json_data = load_jsonl("./data/expert_trajectories.jsonl")
@@ -40,4 +40,4 @@ if __name__ == "__main__":
                                               max_new_tokens=128, do_sample=True, temperature=1.0,
                                               top_k=0, top_p=1)  
             for prompt, output in zip(batch_prompt, batch_output):
-                f.write(json.dumps({"prompt": prompt, "response": output}) + "\n")
+                f.write(json.dumps({"prompt": prompt, "response": output}, ensure_ascii=False) + "\n")

@@ -50,11 +50,11 @@ if __name__ == "__main__":
     
     json_data = load_jsonl("./data/expert_trajectories.jsonl")
     prompt_data = [item['prompt'] for item in json_data]
-    batch_size = 4
-    with open("./data/results_weight-0.5.jsonl", "w") as f:
+    batch_size = 1
+    with open("./data/results_weight-5.0.jsonl", "w") as f:
         for i in tqdm(range(0, len(json_data), batch_size)):
             batch_prompt = prompt_data[i:i+batch_size]
             batch_output = generator.generate(prompts=batch_prompt, num_candidate_tokens=100, 
-                                              max_new_tokens=128, reward_weight=-0.5, temperature=1.0)  
+                                              max_new_tokens=128, reward_weight=-5.0, temperature=1.0)  
             for prompt, output in zip(batch_prompt, batch_output):
-                f.write(json.dumps({"prompt": prompt, "response": output}) + "\n")
+                f.write(json.dumps({"prompt": prompt, "response": output}, ensure_ascii=False) + "\n")
