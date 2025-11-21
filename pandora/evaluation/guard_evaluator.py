@@ -40,7 +40,7 @@ class GuardEvaluator(BaseEvaluator):
                 {"role": "user", "content": item.query},
                 {"role": "assistant", "content": item.response}
             ])
-            score = 1 if result == "safe" else 0
+            score = 1 if result[0] == "safe" else 0 # TODO, batch
             results.append(EvaluationResult(
                 score=score,
                 reason=result,

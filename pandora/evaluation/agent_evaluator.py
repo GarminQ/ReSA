@@ -34,7 +34,7 @@ class AgentEvaluator(BaseEvaluator):
         if tag == "#thescore:":
             # assert parts[0].isdigit() 
             # return int(parts[0])
-            return int(parts[0]) if parts[0].isdigit() else None # TODO
+            return int(parts[0]) if parts[0].isdigit() else None # TODO, avoid none
         else:
             end_idx = text.find("#", start_idx + 1)
             return content_after_tag if end_idx == -1 else content_after_tag[:end_idx].strip()

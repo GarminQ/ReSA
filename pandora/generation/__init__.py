@@ -1,3 +1,4 @@
-from .generator import RewardGuidedGenerator
+from .guided_generator import RewardGuidedGenerator
+from .contrastive_generator import ContrastiveGenerator
 
-__all__ = ["RewardGuidedGenerator"]
+__all__ = ["RewardGuidedGenerator", "ContrastiveGenerator"]
