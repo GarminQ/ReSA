@@ -22,12 +22,15 @@ class ContrastiveGenerator:
         self.base_model = base_model    
         self.processing_class = processing_class    
         self.weight = weight    
-            
+
+        # Check if target and tuned models are the same instance
+        self._target_is_tuned = self.target_model is self.tuned_model
+
         if self.processing_class.pad_token is None:    
             self.processing_class.pad_token = self.processing_class.eos_token    
         self.pad_token_id = self.processing_class.pad_token_id    
         self.eos_token_id = self.processing_class.eos_token_id    
-        
+
     def encode(self, text: str | list[str], **kwargs) -> dict:    
         """  
         Tokenize input text into model-ready tensors.  
@@ -63,7 +66,8 @@ class ContrastiveGenerator:
             skip_special_tokens=True,    
             **kwargs    
         )    
-        
+    
+    @torch.no_grad()   
     def _forward_all_models(    
         self,    
         input_ids: torch.LongTensor,    
@@ -82,25 +86,27 @@ class ContrastiveGenerator:
                 
         Returns:    
             Tuple of model outputs (target_out, tuned_out, base_out).  
-        """    
-        target_out = self.target_model(    
-            input_ids, attention_mask=attention_mask,    
-            past_key_values=past_key_values['target'],    
-            use_cache=True, **kwargs    
-        )    
-            
-        tuned_out = self.tuned_model(    
-            input_ids, attention_mask=attention_mask,    
-            past_key_values=past_key_values['tuned'],    
-            use_cache=True, **kwargs    
-        )    
-            
-        base_out = self.base_model(    
-            input_ids, attention_mask=attention_mask,    
-            past_key_values=past_key_values['base'],    
-            use_cache=True, **kwargs    
-        )    
-            
+        """      
+        base_out = self.base_model(      
+            input_ids, attention_mask=attention_mask,      
+            past_key_values=past_key_values['base'],      
+            use_cache=True, **kwargs      
+        )  
+        tuned_out = self.tuned_model(      
+            input_ids, attention_mask=attention_mask,      
+            past_key_values=past_key_values['tuned'],      
+            use_cache=True, **kwargs      
+        )  
+
+        if self._target_is_tuned:  
+            target_out = tuned_out  # Reuse the same output  
+        else:  
+            target_out = self.target_model(      
+                input_ids, attention_mask=attention_mask,      
+                past_key_values=past_key_values['target'],      
+                use_cache=True, **kwargs      
+            )    
+
         return target_out, tuned_out, base_out    
         
     def _compute_combined_logits(    
