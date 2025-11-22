@@ -6,14 +6,14 @@ from pandora.evaluation import PrefixEvaluator, GuardEvaluator, AgentEvaluator
 from pandora.utils import load_jsonl
 
 if __name__ == "__main__":
-    eval_method = "guard"
+    eval_method = "prefix"
     if eval_method == "prefix":
         evaluator = PrefixEvaluator() # 0.4980 0.2980
     elif eval_method == "guard":
         evaluator = GuardEvaluator(model_id="/home/qjm/my-model/LlamaGuard-7b") # 0.8173 0.6653 0.6480
 
-    # records = load_jsonl("/home/qjm/code/Pandora/data/baseline_results_weight-1.0.jsonl")
-    records = load_jsonl("/home/qjm/code/Pandora/data/results_weight-7.0.jsonl")
+    records = load_jsonl("/home/qjm/code/Pandora/data/baseline_results_weight-0.5.jsonl")
+    # records = load_jsonl("/home/qjm/code/Pandora/data/results_weight-7.0.jsonl")
 
     data_list = [
         EvaluationData(query=record["prompt"], response=record["response"])
