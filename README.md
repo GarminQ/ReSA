@@ -1,11 +1,13 @@
-pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
 
 # (optional) pip install flash-attn==2.5.8 --no-build-isolation
 # (optional) pip install bitsandbytes==0.42.0
 
-pip install peft
-pip install trl
-pip install wandb
 
-pip install rich
+# Download dataset and model
+export HF_ENDPOINT=https://hf-mirror.com
+
+hf download walledai/AdvBench --local-dir /root/autodl-tmp/my-data/AdvBench --repo-type dataset
+hf download meta-llama/Llama-2-7b-chat-hf --local-dir /root/autodl-tmp/my-model/Llama-2-7b-chat-hf --exclude "*.bin"
+
+# Quick start

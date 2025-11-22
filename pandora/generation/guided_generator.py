@@ -36,7 +36,9 @@ class RewardGuidedGenerator:
         self.reward_model = reward_model    
         self.policy_tokenizer = policy_tokenizer    
         self.reward_tokenizer = reward_tokenizer  
-        self.device = torch.device(device) if isinstance(device, str) else device    
+        # self.device = torch.device(device) if isinstance(device, str) else device    
+        self.policy_device = self.policy_model.device 
+        self.reward_device = self.reward_model.device  
       
     def generate(    
         self,    
@@ -62,7 +64,7 @@ class RewardGuidedGenerator:
             List of generated texts  
         """  
         # Encode policy model inputs  
-        encoded_inputs = self.policy_tokenizer(prompts, return_tensors="pt", padding=True).to(self.device)    
+        encoded_inputs = self.policy_tokenizer(prompts, return_tensors="pt", padding=True).to(self.policy_device)    
         input_ids = encoded_inputs["input_ids"] 
         batch_size = input_ids.shape[0]  
         prompt_len = input_ids.shape[1]  
@@ -76,7 +78,7 @@ class RewardGuidedGenerator:
                 {"role": "assistant", "content": ""}  
             ] for prompt in prompts]  
         formatted_batch = self.reward_tokenizer.apply_chat_template(reward_prompts, tokenize=False)  
-        reward_encoded_inputs = self.reward_tokenizer(formatted_batch, return_tensors="pt", padding=True).to(self.device)  
+        reward_encoded_inputs = self.reward_tokenizer(formatted_batch, return_tensors="pt", padding=True).to(self.reward_device)  
         reward_input_ids = reward_encoded_inputs["input_ids"]  
         reward_attention_mask = reward_encoded_inputs["attention_mask"]  
   
@@ -152,7 +154,7 @@ class RewardGuidedGenerator:
         to support parallel scoring of multiple candidate tokens  
         """  
         cache = DynamicCache(config=self.reward_model.config)    
-        cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.device)    
+        cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.reward_device)    
             
         with torch.no_grad():    
             self.reward_model(    
@@ -182,7 +184,8 @@ class RewardGuidedGenerator:
           
         This ensures all candidate branches start from the same selected state in the next iteration  
         """  
-        global_indices = torch.arange(batch_size, device=self.device) * num_candidate_tokens + selected_indices   
+        selected_indices = selected_indices.to(self.reward_device)
+        global_indices = torch.arange(batch_size, device=self.reward_device) * num_candidate_tokens + selected_indices   
         reorder_indices = global_indices.unsqueeze(1).repeat(1, num_candidate_tokens).view(-1)    
   
         cache.reorder_cache(reorder_indices)  
@@ -205,9 +208,9 @@ class RewardGuidedGenerator:
         model_input_ids = input_ids if is_prefill_stage else input_ids[:, -1:]  
   
         if is_prefill_stage:    
-            cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.device)    
+            cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.policy_device)    
         else:    
-            cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.device)  
+            cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.policy_device)  
             
         with torch.no_grad():    
             outputs = self.policy_model(    
@@ -241,7 +244,7 @@ class RewardGuidedGenerator:
             reward_scores: Reward scores [batch_size, num_candidate_tokens]  
         """  
         candidates_flat = candidates.view(batch_size * num_candidate_tokens, 1)    
-        cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.device)    
+        cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.reward_device)    
             
         with torch.no_grad():    
             outputs = self.reward_model(    
@@ -276,17 +279,18 @@ class RewardGuidedGenerator:
             updated_policy_mask: Updated policy attention mask  
             updated_reward_mask: Updated reward attention mask  
         """  
-        batch_range = torch.arange(batch_size, device=self.device)    
+        batch_range = torch.arange(batch_size, device=self.policy_device)    
         selected_tokens = candidates[batch_range, selected_indices, :]     
   
         updated_input_ids = torch.cat([input_ids, selected_tokens], dim=1)  
+        selected_tokens = selected_tokens.to(self.reward_device)  
         updated_reward_input_ids = torch.cat([reward_input_ids, selected_tokens], dim=1)  
         updated_policy_mask = torch.cat(  
-            [policy_attention_mask, torch.ones((batch_size, 1), device=self.device)],   
+            [policy_attention_mask, torch.ones((batch_size, 1), device=self.policy_device)],   
             dim=-1  
         )   
         updated_reward_mask = torch.cat(  
-            [reward_attention_mask, torch.ones((batch_size * num_candidate_tokens, 1), device=self.device)],   
+            [reward_attention_mask, torch.ones((batch_size * num_candidate_tokens, 1), device=self.reward_device)],   
             dim=-1  
         )   
   

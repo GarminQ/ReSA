@@ -26,14 +26,14 @@ if __name__ == "__main__":
         tuned_model=target_model,  
         base_model=base_model,
         processing_class=tokenizer,  
-        weight=-0.3  
+        weight=-0.5  
     )  
 
     json_data = load_jsonl("./data/expert_trajectories.jsonl")
     prompt_data = [item['prompt'] for item in json_data]
     batch_size = 2
 
-    with open("./data/baseline_results_weight-1.0.jsonl", "w") as f:
+    with open("./data/baseline_results_weight-0.5.jsonl", "w") as f:
         for i in tqdm(range(0, len(json_data), batch_size)):
             batch_prompt = prompt_data[i:i+batch_size]
             batch_output = generator.generate(prompts=batch_prompt,  

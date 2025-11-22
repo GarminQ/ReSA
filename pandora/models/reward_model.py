@@ -100,6 +100,7 @@ class CustomRewardModel(PreTrainedModel):
             ]  
               
         elif pooling_mode == "mean":  
+            attention_mask = attention_mask.to(hidden_states.device)
             num_non_pad_tokens = attention_mask.sum(dim=1, keepdim=True)  
             pooled_output = (hidden_states * attention_mask.unsqueeze(-1)).sum(dim=1) / num_non_pad_tokens  
               
@@ -153,6 +154,7 @@ class CustomRewardModel(PreTrainedModel):
         Returns:  
             Reward scores [batch_size, 1]  
         """  
+        self.score_head.to(hidden_states.device)
         return self.score_head(hidden_states)  
   
     def forward(  

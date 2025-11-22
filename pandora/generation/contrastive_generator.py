@@ -113,8 +113,14 @@ class ContrastiveGenerator:
         Returns:    
             Combined logits tensor.  
         """    
-        reward = self.weight * (tuned_logits - base_logits)    
-        return target_logits + reward    
+        # reward = self.weight * (tuned_logits - base_logits)    
+        # return target_logits + reward    
+        topk_token_logits, topk_token_ids = torch.topk(target_logits, 10, dim=-1)  
+        topk_tuned_logits = torch.gather(tuned_logits, dim=-1, index=topk_token_ids)
+        topk_base_logits = torch.gather(base_logits, dim=-1, index=topk_token_ids)
+        self.topk_token_ids = topk_token_ids
+        return topk_token_logits + self.weight * (topk_tuned_logits - topk_base_logits)
+
         
     def _sample_next_token(    
         self,    
@@ -155,8 +161,12 @@ class ContrastiveGenerator:
             logits[mask.scatter(-1, sorted_indices, mask)] = float('-inf')    
             
         probs = logits.softmax(dim=-1)    
-        return torch.multinomial(probs, num_samples=1).squeeze(-1)    
-        
+        # return torch.multinomial(probs, num_samples=1).squeeze(-1)    
+        selected_indices = torch.multinomial(probs, num_samples=1).squeeze(-1)
+        batch_range = torch.arange(logits.shape[0], device=self.device)
+        selected_tokens = self.topk_token_ids[batch_range, selected_indices]
+        return selected_tokens
+
     def generate(    
         self,    
         prompts: str | list[str],    
