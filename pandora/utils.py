@@ -24,6 +24,7 @@ def prepare_tokenizer(model_name: str) -> AutoTokenizer:
     return tokenizer
 
 def load_jsonl(path):
+    print(f"Load jsonl from: {path}")
     data = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:

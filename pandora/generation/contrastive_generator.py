@@ -15,13 +15,11 @@ class ContrastiveGenerator:
         tuned_model: PreTrainedModel,    
         base_model: PreTrainedModel,    
         processing_class: PreTrainedTokenizerBase,    
-        weight: float = 1.0,    
     ):    
         self.target_model = target_model    
         self.tuned_model = tuned_model    
         self.base_model = base_model    
         self.processing_class = processing_class    
-        self.weight = weight    
 
         # Check if target and tuned models are the same instance
         self._target_is_tuned = self.target_model is self.tuned_model
@@ -31,26 +29,7 @@ class ContrastiveGenerator:
         self.pad_token_id = self.processing_class.pad_token_id    
         self.eos_token_id = self.processing_class.eos_token_id 
 
-        self.device = self.target_model.device   
-
-    def encode(self, text: str | list[str], **kwargs) -> dict:    
-        """  
-        Tokenize input text into model-ready tensors.  
-          
-        Args:  
-            text: Input text string or list of strings.  
-            **kwargs: Additional tokenization arguments.  
-              
-        Returns:  
-            Dictionary containing input_ids and attention_mask tensors.  
-        """  
-        return self.processing_class(    
-            text,    
-            return_tensors="pt",    
-            padding=True,    
-            add_special_tokens=False,    
-            **kwargs    
-        )    
+        self.device = self.target_model.device    
     
     @torch.no_grad()   
     def _forward_all_models(    
@@ -58,6 +37,7 @@ class ContrastiveGenerator:
         input_ids: torch.LongTensor,    
         attention_mask: torch.LongTensor,    
         past_key_values: dict,    
+        cache_position: torch.LongTensor,    
         **kwargs    
     ):    
         """  
@@ -74,12 +54,14 @@ class ContrastiveGenerator:
         """      
         base_out = self.base_model(      
             input_ids, attention_mask=attention_mask,      
-            past_key_values=past_key_values['base'],      
+            past_key_values=past_key_values['base'],  
+            cache_position=cache_position,    
             use_cache=True, **kwargs      
         )  
         tuned_out = self.tuned_model(      
             input_ids, attention_mask=attention_mask,      
-            past_key_values=past_key_values['tuned'],      
+            past_key_values=past_key_values['tuned'], 
+            cache_position=cache_position,     
             use_cache=True, **kwargs      
         )  
 
@@ -88,7 +70,8 @@ class ContrastiveGenerator:
         else:  
             target_out = self.target_model(      
                 input_ids, attention_mask=attention_mask,      
-                past_key_values=past_key_values['target'],      
+                past_key_values=past_key_values['target'],    
+                cache_position=cache_position,    
                 use_cache=True, **kwargs      
             )    
 
@@ -98,7 +81,9 @@ class ContrastiveGenerator:
         self,    
         target_logits: torch.Tensor,    
         tuned_logits: torch.Tensor,    
-        base_logits: torch.Tensor,    
+        base_logits: torch.Tensor, 
+        temperature: float, 
+        weight: float   
     ) -> torch.Tensor:    
         """  
         Combine logits using contrastive decoding formula.  
@@ -113,13 +98,18 @@ class ContrastiveGenerator:
         Returns:    
             Combined logits tensor.  
         """    
-        # reward = self.weight * (tuned_logits - base_logits)    
-        # return target_logits + reward    
-        topk_token_logits, topk_token_ids = torch.topk(target_logits, 10, dim=-1)  
-        topk_tuned_logits = torch.gather(tuned_logits, dim=-1, index=topk_token_ids)
-        topk_base_logits = torch.gather(base_logits, dim=-1, index=topk_token_ids)
-        self.topk_token_ids = topk_token_ids
-        return topk_token_logits + self.weight * (topk_tuned_logits - topk_base_logits)
+        target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)
+        tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1)
+        base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1)
+        new_lprobs = target_lprobs + weight * (tuned_lprobs - base_lprobs)
+
+        # Get normalizing constant
+        log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)
+        # Subtract normalizing constant
+        new_lprobs -= log_normalizer
+        estimated_probs = torch.exp(new_lprobs)
+
+        return torch.multinomial(estimated_probs, num_samples=1).squeeze(-1)
 
         
     def _sample_next_token(    
@@ -161,18 +151,19 @@ class ContrastiveGenerator:
             logits[mask.scatter(-1, sorted_indices, mask)] = float('-inf')    
             
         probs = logits.softmax(dim=-1)    
-        # return torch.multinomial(probs, num_samples=1).squeeze(-1)    
-        selected_indices = torch.multinomial(probs, num_samples=1).squeeze(-1)
-        batch_range = torch.arange(logits.shape[0], device=self.device)
-        selected_tokens = self.topk_token_ids[batch_range, selected_indices]
-        return selected_tokens
+        return torch.multinomial(probs, num_samples=1).squeeze(-1)    
+        # selected_indices = torch.multinomial(probs, num_samples=1).squeeze(-1)
+        # batch_range = torch.arange(logits.shape[0], device=self.device)
+        # selected_tokens = self.topk_token_ids[batch_range, selected_indices]
+        # return selected_tokens
 
     def generate(    
         self,    
         prompts: str | list[str],    
-        max_new_tokens: int = 20,    
-        do_sample: bool = False,    
-        temperature: float = 1.0,    
+        max_new_tokens: int = 20, 
+        weight: float = 1.0,    
+        temperature: float = 1.0,  
+        do_sample: bool = True,    
         top_k: int = 50,    
         top_p: float = 1.0,    
         **kwargs,    
@@ -200,12 +191,15 @@ class ContrastiveGenerator:
         prompt_len = input_ids.shape[1]
              
         past_key_values = {'target': None, 'tuned': None, 'base': None}    
-        unfinished = torch.ones(batch_size, dtype=torch.long, device=self.device)    
-            
-        for _ in range(max_new_tokens):    
+        unfinished = torch.ones(batch_size, dtype=torch.long, device=self.device) 
+
+        cache_position = torch.arange(0, prompt_len, device=self.device)
+        for step in range(max_new_tokens):    
+            model_inputs = input_ids if step == 0 else input_ids[:, -1:]
             target_out, tuned_out, base_out = self._forward_all_models(    
-                input_ids, attention_mask, past_key_values, **kwargs    
+                model_inputs, attention_mask, past_key_values, cache_position, **kwargs    
             )    
+            cache_position = cache_position[-1:] + 1
                 
             past_key_values = {    
                 'target': target_out.past_key_values,    
@@ -213,15 +207,17 @@ class ContrastiveGenerator:
                 'base': base_out.past_key_values,    
             }    
                 
-            combined_logits = self._compute_combined_logits(    
+            next_tokens = self._compute_combined_logits(    
                 target_out.logits[:, -1, :],    
                 tuned_out.logits[:, -1, :],    
-                base_out.logits[:, -1, :],    
+                base_out.logits[:, -1, :], 
+                temperature,
+                weight   
             )    
                 
-            next_tokens = self._sample_next_token(    
-                combined_logits, do_sample, temperature, top_k, top_p    
-            )    
+            # next_tokens = self._sample_next_token(    
+            #     combined_logits, do_sample, temperature, top_k, top_p    
+            # )    
                 
             next_tokens = next_tokens * unfinished + self.pad_token_id * (1 - unfinished)    
                 
@@ -235,4 +231,4 @@ class ContrastiveGenerator:
             if unfinished.max() == 0:    
                 break    
             
-        return self.processing_class.batch_decode(input_ids[:, prompt_len:], skip_special_tokens=True,**kwargs)
+        return self.processing_class.batch_decode(input_ids[:, prompt_len:], skip_special_tokens=True, **kwargs)

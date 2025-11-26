@@ -8,6 +8,12 @@ from pandora.generation import ContrastiveGenerator
 
 if __name__ == "__main__":
     target_model = AutoModelForCausalLM.from_pretrained(  
+        "/home/qjm/my-model/Llama-2-13b-chat-hf",  
+        # quantization_config=BitsAndBytesConfig(load_in_4bit=True), 
+        torch_dtype=torch.bfloat16,   
+        device_map='auto'  
+    ) 
+    tuned_model = AutoModelForCausalLM.from_pretrained(  
         "/home/qjm/my-model/Llama-2-7b-chat-hf",  
         # quantization_config=BitsAndBytesConfig(load_in_4bit=True), 
         torch_dtype=torch.bfloat16,   
@@ -19,25 +25,25 @@ if __name__ == "__main__":
         torch_dtype=torch.bfloat16, 
         device_map='auto'  
     ) 
-    tokenizer = prepare_tokenizer("/home/qjm/my-model/Llama-2-7b-chat-hf")
+    tokenizer = prepare_tokenizer("/home/qjm/my-model/Llama-2-13b-chat-hf")
 
     generator = ContrastiveGenerator(  
         target_model=target_model,  
-        tuned_model=target_model,  
+        tuned_model=tuned_model,  
         base_model=base_model,
         processing_class=tokenizer,  
-        weight=-0.5  
+
     )  
 
     json_data = load_jsonl("./data/expert_trajectories.jsonl")
     prompt_data = [item['prompt'] for item in json_data]
-    batch_size = 2
+    batch_size = 32
 
-    with open("./data/baseline_results_weight-0.5.jsonl", "w") as f:
+    with open("./result/cond/baseline13b_results_weight-1.5-scaled-t1.0-full.jsonl", "w") as f:
         for i in tqdm(range(0, len(json_data), batch_size)):
             batch_prompt = prompt_data[i:i+batch_size]
             batch_output = generator.generate(prompts=batch_prompt,  
-                                              max_new_tokens=128, do_sample=True, temperature=1.0,
-                                              top_k=0, top_p=1)  
+                                              max_new_tokens=128, weight=-1.5, temperature=1.0,
+                                              do_sample=True, top_k=0, top_p=1)  
             for prompt, output in zip(batch_prompt, batch_output):
                 f.write(json.dumps({"prompt": prompt, "response": output}, ensure_ascii=False) + "\n")
