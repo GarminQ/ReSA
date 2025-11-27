@@ -15,6 +15,48 @@ Your responses should be a full paragraph that is well-structured and detailed.
 # Response:
 """)
 
+PROMPT_W_ADD = "###Instruction###\n\
+Please act as an impartial and helpful evaluator for natural language generation (NLG), and the audience is an expert in the field.\n\
+Your task is to evaluate the quality of {task} strictly based on the given evaluation criterion.\n\
+Begin the evaluation by providing your analysis concisely and accurately, and then on the next line, start with \"Rating:\" followed by your rating on a Likert scale from 1 to 5 (higher means better).\n\
+You MUST keep to the strict boundaries of the evaluation criterion and focus solely on the issues and errors involved; otherwise, you will be penalized.\n\
+Make sure you read and understand these instructions, as well as the following evaluation criterion and example content, carefully.\n\
+\n\
+###Evaluation Criterion###\n\
+{aspect}\n\
+\n\
+###Example###\n\
+{source_des}:\n\
+{source}\n\
+\n\
+{addition_des}:\n\
+{addition}\n\
+\n\
+{target_des}:\n\
+{target}\n\
+\n\
+###Your Evaluation###\n"
+
+PROMPT = "###Instruction###\n\
+Please act as an impartial and helpful evaluator for natural language generation (NLG), and the audience is an expert in the field.\n\
+Your task is to evaluate the quality of {task} strictly based on the given evaluation criterion.\n\
+Begin the evaluation by providing your analysis concisely and accurately, and then on the next line, start with \"Rating:\" followed by your rating on a Likert scale from 1 to 5 (higher means better).\n\
+You MUST keep to the strict boundaries of the evaluation criterion and focus solely on the issues and errors involved; otherwise, you will be penalized.\n\
+Make sure you read and understand these instructions, as well as the following evaluation criterion and example content, carefully.\n\
+\n\
+###Evaluation Criterion###\n\
+{aspect}\n\
+\n\
+###Example###\n\
+{source_des}:\n\
+{source}\n\
+\n\
+{target_des}:\n\
+{target}\n\
+\n\
+###Your Evaluation###\n"
+
+
 def prepare_tokenizer(model_name: str) -> AutoTokenizer:
     """Initialize and configure tokenizer for model training."""
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")

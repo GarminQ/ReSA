@@ -6,7 +6,7 @@ from pathlib import Path
 from datasets import Dataset, load_dataset  
 from peft import LoraConfig  
 from transformers import HfArgumentParser, AutoModelForCausalLM
-from pandora.trainer import RewardConfig, MaxEntIRLTrainer
+from pandora.trainer import MaxEntIRLTrainer
 from pandora.models import CustomRewardModel
 from pandora.arguments import MaxEntIRLConfig, ModelArguments, DataArguments
 from pandora.utils import prepare_tokenizer, base_prompt_template

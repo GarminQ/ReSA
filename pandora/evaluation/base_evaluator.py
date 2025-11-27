@@ -8,8 +8,8 @@ class EvaluationData:
     """
     Unified input for all evaluators.
     """
-    response: str
     query: Optional[str] = None
+    response: Optional[str] = None
 
 @dataclass
 class EvaluationResult:

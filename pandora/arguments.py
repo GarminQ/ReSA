@@ -20,7 +20,7 @@ class MaxEntIRLConfig(GRPOConfig):
     save_strategy: str = field(default="steps", metadata={"help": "Save checkpoint strategy"})  
     save_steps: int = field(default=100, metadata={"help": "Save checkpoint every X steps"})  
     report_to: str = field(default="wandb", metadata={"help": "Reporting tool"})  
-    output_dir: str = field(default="./output", metadata={"help": "Output directory"})  
+    output_dir: str = field(default="./output/dense/", metadata={"help": "Output directory"})  
       
     # MaxEnt IRL specific parameters  
     reward_learning_rate: float = field(default=1e-5, metadata={"help": "Learning rate for reward model optimizer"})  

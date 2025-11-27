@@ -44,6 +44,8 @@ class RewardGuidedGenerator:
             self.policy_tokenizer.pad_token = self.policy_tokenizer.eos_token    
         self.pad_token_id = self.policy_tokenizer.pad_token_id    
         self.eos_token_id = self.policy_tokenizer.eos_token_id 
+
+        self.need_convert = True if self.reward_tokenizer.vocab_size != self.policy_tokenizer.vocab_size else False
       
     def generate(    
         self,    
@@ -258,7 +260,9 @@ class RewardGuidedGenerator:
         Returns:  
             reward_scores: Reward scores [batch_size, num_candidate_tokens]  
         """  
-        candidates_flat = candidates.view(batch_size * num_candidate_tokens, 1)    
+        candidates_flat = candidates.view(batch_size * num_candidate_tokens, 1) 
+        if self.need_convert:  
+            candidates_flat = self._convert_policy_tokens_to_reward_tokens(candidates_flat) 
         cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.reward_device)    
             
         with torch.no_grad():    
@@ -294,8 +298,12 @@ class RewardGuidedGenerator:
             updated_reward_mask: Updated reward attention mask  
         """    
         updated_input_ids = torch.cat([input_ids, next_tokens], dim=1)  
-        next_tokens = next_tokens.to(self.reward_device)  
-        updated_reward_input_ids = torch.cat([reward_input_ids, next_tokens], dim=1)  
+        next_tokens = next_tokens.to(self.reward_device) 
+        if self.need_convert:
+            reward_next_tokens = self._convert_policy_tokens_to_reward_tokens(next_tokens) 
+            updated_reward_input_ids = torch.cat([reward_input_ids, reward_next_tokens], dim=1)  
+        else:
+            updated_reward_input_ids = torch.cat([reward_input_ids, next_tokens], dim=1)  
         updated_policy_mask = torch.cat(  
             [policy_attention_mask, torch.ones((batch_size, 1), device=self.policy_device)],   
             dim=-1  
@@ -306,3 +314,40 @@ class RewardGuidedGenerator:
         )   
   
         return updated_input_ids, updated_reward_input_ids, updated_policy_mask, updated_reward_mask
+    
+    def _convert_policy_tokens_to_reward_tokens(  
+        self,  
+        policy_token_ids: torch.LongTensor  
+    ) -> torch.LongTensor:  
+        """Convert policy model token IDs to reward model token IDs""" 
+
+        # # 移到 CPU 并验证 token ID  
+        # policy_token_ids_cpu = policy_token_ids.cpu()  
+        
+        # # 验证 token ID 范围  
+        # vocab_size = self.policy_tokenizer.vocab_size  
+        # if (policy_token_ids_cpu < 0).any() or (policy_token_ids_cpu >= vocab_size).any():  
+        #     print(f"Invalid token IDs detected. Min: {policy_token_ids_cpu.min()}, Max: {policy_token_ids_cpu.max()}, Vocab size: {vocab_size}")  
+        #     # 将无效 token ID 替换为 UNK token  
+        #     policy_token_ids_cpu = torch.clamp(policy_token_ids_cpu, 0, vocab_size - 1)  
+        
+        # Decode policy tokens to text  
+        texts = self.policy_tokenizer.batch_decode(  
+            policy_token_ids,   
+            skip_special_tokens=True,  
+            # clean_up_tokenization_spaces=True  
+        )  
+        # Re-encode with reward tokenizer  
+        reward_token_ids = self.reward_tokenizer(  
+            texts,  
+            padding=True, 
+            add_special_tokens=False,  
+            return_tensors="pt"  
+        )["input_ids"].to(self.reward_device)  
+        
+        if reward_token_ids.shape[1] != 1:
+            if reward_token_ids.shape[1] == 0:
+                return policy_token_ids
+            return reward_token_ids[:, -1].unsqueeze(-1)
+        
+        return reward_token_ids
