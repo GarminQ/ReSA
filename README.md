@@ -1,7 +1,7 @@
 pip install -r requirements.txt
 
-# (optional) pip install flash-attn==2.5.8 --no-build-isolation
-# (optional) pip install bitsandbytes==0.42.0
+# (optional)
+wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
 
 
 # Download dataset and model
@@ -13,5 +13,13 @@ hf download meta-llama/Llama-2-7b-chat-hf --local-dir /root/autodl-tmp/my-model/
 hf download meta-llama/Llama-3.1-8B --local-dir /home/qjm/my-model/Llama-3.1-8B --exclude "original/"
 hf download Skywork/Skywork-Reward-Llama-3.1-8B --local-dir /home/qjm/my-model/Skywork-Reward-Llama-3.1-8B
 
-wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp310-cp310-linux_x86_64.whl
+# Build Ray Cluster
+su root
+Es~8795145330255
+
+sudo ufw status
+sudo ufw allow 6379
+sudo ufw allow 8265
+
 # Quick start
+python scripts/train.py --policy_model_id /home/qjm/my-model/Llama-3.1-8B --reward_model_id Skywork/Skywork-Reward-V2-Llama-3.2-1B

@@ -214,7 +214,7 @@ class MaxEntIRLTrainer(GRPOTrainer):
           
         # Update reward model using gradient ascent 
         self.reward_optimizer.zero_grad()  
-        self.reward_model.score_head.weight.grad = -gradient  
+        self.reward_model.score_head.weight.grad = -gradient
         self.reward_optimizer.step()  
 
         # Log reward gradient norm for monitoring training progress
@@ -265,6 +265,7 @@ class MaxEntIRLTrainer(GRPOTrainer):
     @profiling_decorator
     def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list, 
                            prompt_ids=None, prompt_mask=None, completion_ids=None, completion_mask=None):
+        # TODO
         if self.state.global_step % self.args.num_iterations == 0:
             self._update_reward_model(inputs=inputs, completions=completions)  
             
@@ -283,7 +284,8 @@ class MaxEntIRLTrainer(GRPOTrainer):
         ):
             with profiling_context(self, reward_func_name):
                 if isinstance(reward_func, nn.Module):  # Module (no PretrainedModel) for compat with compiled models
-                    reward_processing_class = self.processing_class # TODO
+                    # TODO
+                    reward_processing_class = self.processing_class
                     if is_conversational(inputs[0]):
                         messages = [{"messages": p + c} for p, c in zip(prompts, completions, strict=True)]
                         texts = [
@@ -330,7 +332,6 @@ class MaxEntIRLTrainer(GRPOTrainer):
         # completions may be distributed across processes
         rewards_per_func = gather(rewards_per_func)
         return rewards_per_func
-
 
     def _generate_and_score_completions(
         self, inputs: list[dict[str, torch.Tensor | Any]]
@@ -495,7 +496,7 @@ class MaxEntIRLTrainer(GRPOTrainer):
         # Calculate rewards for each reward function. rewards_per_func aggregates rewards across all processes. This is
         # important because rewards will be normalized per group, and completions are distributed. We will later slice
         # rewards_per_func to extract each process's subset.
-
+        # TODO
         # rewards_per_func = self._calculate_rewards(inputs, prompts, completions, completion_ids_list)
         rewards_per_func = self._calculate_rewards(inputs, prompts, completions, completion_ids_list, 
                                                     prompt_ids, prompt_mask, completion_ids, completion_mask)
@@ -712,7 +713,7 @@ class MaxEntIRLTrainer(GRPOTrainer):
         # Two-sided clipping
         if self.args.delta is not None:
             coef_1 = torch.clamp(coef_1, max=self.args.delta)
-            
+        # TODO
         if advantages.dim() == 1:
             advantages = advantages.unsqueeze(1)
         per_token_loss1 = coef_1 * advantages

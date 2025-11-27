@@ -39,7 +39,7 @@ class CustomRewardModel(PreTrainedModel):
         hidden_size = config.hidden_size
 
         self.score_head = nn.Linear(hidden_size, 1, bias=False)  
-        self.score_head.to(self.device)
+        self.score_head = self.score_head.to(dtype=self.dtype, device=self.device)
 
         self.tokenizer = AutoTokenizer.from_pretrained("/home/qjm/my-model/Llama-2-7b-hf", padding_side="left")
         if self.tokenizer.pad_token is None:  
@@ -62,9 +62,14 @@ class CustomRewardModel(PreTrainedModel):
         return model
     
     @property  
+    def dtype(self):  
+        """Get the dtype of the model."""  
+        return next(self.backbone.parameters()).dtype  
+    
+    @property  
     def device(self):  
         """Get the device of the model."""  
-        return next(self.parameters()).device  
+        return next(self.backbone.parameters()).device  
     
     def _pool_hidden_states(  
         self,  

@@ -25,16 +25,16 @@ if __name__ == "__main__":
 
     policy_model = AutoModelForCausalLM.from_pretrained(  
         model_args.policy_model_id,   
-        # torch_dtype=torch.bfloat16,
-        quantization_config=BitsAndBytesConfig(load_in_4bit=True),
+        torch_dtype=torch.bfloat16,
+        # quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         device_map='auto'  
     )  
       
     reward_model = AutoModelForSequenceClassification.from_pretrained(
         model_args.reward_model_id,
         # num_labels=1,
-        quantization_config=BitsAndBytesConfig(load_in_4bit=True),
-        # torch_dtype=torch.bfloat16,  
+        # quantization_config=BitsAndBytesConfig(load_in_4bit=True),
+        torch_dtype=torch.bfloat16,  
         device_map='auto'  
     ) 
 

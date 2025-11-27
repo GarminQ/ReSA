@@ -42,10 +42,11 @@ class RewardGuidedGenerator:
 
         if self.policy_tokenizer.pad_token is None:    
             self.policy_tokenizer.pad_token = self.policy_tokenizer.eos_token    
+        
         self.pad_token_id = self.policy_tokenizer.pad_token_id    
         self.eos_token_id = self.policy_tokenizer.eos_token_id 
 
-        self.need_convert = True if self.reward_tokenizer.vocab_size != self.policy_tokenizer.vocab_size else False
+        self.need_convert = True if self.reward_tokenizer.vocab_size != self.policy_tokenizer.vocab_size else False # TODO, check [PAD]
       
     def generate(    
         self,    

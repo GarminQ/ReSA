@@ -5,26 +5,31 @@ import torch
 from pathlib import Path
 from datasets import Dataset, load_dataset  
 from peft import LoraConfig  
-from transformers import HfArgumentParser, AutoModelForCausalLM
+from transformers import HfArgumentParser, AutoModelForCausalLM, BitsAndBytesConfig
 from pandora.trainer import MaxEntIRLTrainer
 from pandora.models import CustomRewardModel
 from pandora.arguments import MaxEntIRLConfig, ModelArguments, DataArguments
 from pandora.utils import prepare_tokenizer, base_prompt_template
 
+import ray
 
 if __name__ == "__main__":
+    ray.init(address='auto')
+
     parser = HfArgumentParser((MaxEntIRLConfig, ModelArguments, DataArguments))
     training_args, model_args, data_args = parser.parse_args_into_dataclasses()
 
     policy_model = AutoModelForCausalLM.from_pretrained(  
         model_args.policy_model_id,   
-        torch_dtype=torch.bfloat16,   
+        torch_dtype=torch.bfloat16,
+        # quantization_config=BitsAndBytesConfig(load_in_8bit=True),
         device_map='auto'  
     )  
     reward_model = CustomRewardModel.from_pretrained_backbone(  
         model_args.reward_model_id,
         pooling_mode="mean", 
-        torch_dtype=torch.float32,   
+        torch_dtype=torch.bfloat16,
+        # quantization_config=BitsAndBytesConfig(load_in_8bit=True),   
         device_map='auto' 
     ) 
 
