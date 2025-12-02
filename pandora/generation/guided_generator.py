@@ -9,7 +9,7 @@ from transformers import (
 from transformers.cache_utils import Cache
 
 from pandora.models import CustomRewardModel  
-  
+import numpy as np
   
 class RewardGuidedGenerator:    
     """Token-level reward model guided policy model generator with KV cache optimization"""    
@@ -36,12 +36,14 @@ class RewardGuidedGenerator:
         self.reward_model = reward_model    
         self.policy_tokenizer = policy_tokenizer    
         self.reward_tokenizer = reward_tokenizer  
-        # self.device = torch.device(device) if isinstance(device, str) else device    
+
         self.policy_device = self.policy_model.device 
         self.reward_device = self.reward_model.device  
 
         if self.policy_tokenizer.pad_token is None:    
-            self.policy_tokenizer.pad_token = self.policy_tokenizer.eos_token    
+            self.policy_tokenizer.pad_token = self.policy_tokenizer.eos_token 
+        if self.reward_tokenizer.pad_token is None:    
+            self.reward_tokenizer.pad_token = self.reward_tokenizer.eos_token     
         
         self.pad_token_id = self.policy_tokenizer.pad_token_id    
         self.eos_token_id = self.policy_tokenizer.eos_token_id 
@@ -86,7 +88,8 @@ class RewardGuidedGenerator:
                 {"role": "assistant", "content": ""}  
             ] for prompt in prompts]  
         formatted_batch = self.reward_tokenizer.apply_chat_template(reward_prompts, tokenize=False)  
-        reward_encoded_inputs = self.reward_tokenizer(formatted_batch, return_tensors="pt", padding=True).to(self.reward_device)  
+        reward_encoded_inputs = self.reward_tokenizer(formatted_batch, return_tensors="pt", 
+                                                      padding=True, padding_side="right", add_special_tokens=False).to(self.reward_device)  # TODO, keep consist with train
         reward_input_ids = reward_encoded_inputs["input_ids"]  
         reward_attention_mask = reward_encoded_inputs["attention_mask"]  
   
@@ -98,6 +101,7 @@ class RewardGuidedGenerator:
             batch_size=batch_size    
         )   
         unfinished = torch.ones(batch_size, dtype=torch.long, device=self.policy_device)
+        pre_reward_score = torch.zeros((batch_size, num_candidate_tokens), dtype=torch.long, device=self.reward_device)
         # Autoregressive generation loop  
         for _ in range(max_new_tokens):    
             # 1. Policy model generates candidate tokens 
@@ -117,9 +121,16 @@ class RewardGuidedGenerator:
                 batch_size=batch_size    
             )    
             # 3. Combine scores and select best candidate 
+            cur_reward_score = reward_scores
+            reward_scores = reward_scores - pre_reward_score
+            pre_reward_score = cur_reward_score
             scaled_reward_scores = (reward_scores - torch.mean(reward_scores, dim=-1, keepdim=True)) \
                                     * (torch.std(policy_logits, dim=-1, keepdim=True) / torch.std(reward_scores, dim=-1, keepdim=True)) \
                                     + torch.mean(policy_logits, dim=-1, keepdim=True) 
+            
+            # Avoid the situation where '�' characters appear simultaneously in the decoding candidate pool
+            scaled_reward_scores = torch.nan_to_num(scaled_reward_scores, nan=0.0, posinf=0.0, neginf=0.0)
+
             combined_scores = policy_logits + reward_weight * scaled_reward_scores  
               
             if do_sample:   
@@ -263,17 +274,28 @@ class RewardGuidedGenerator:
         """  
         candidates_flat = candidates.view(batch_size * num_candidate_tokens, 1) 
         if self.need_convert:  
-            candidates_flat = self._convert_policy_tokens_to_reward_tokens(candidates_flat) 
-        cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.reward_device)    
-            
-        with torch.no_grad():    
-            outputs = self.reward_model(    
-                input_ids=candidates_flat,    
-                attention_mask=attention_mask,    
-                cache_position=cache_position,    
-                past_key_values=cache,    
-                use_cache=True    
-            )    
+            convert_input_ids, convert_attention_mask = self._convert_policy_tokens_to_reward_tokens(candidates_flat) 
+            cache_position = torch.arange(cache.get_seq_length(), cache.get_seq_length() + convert_input_ids.shape[1], dtype=torch.long, device=self.reward_device)
+            temp_attention_mask = torch.cat([attention_mask, convert_attention_mask], dim=-1)
+            with torch.no_grad():    
+                outputs = self.reward_model(    
+                    input_ids=convert_input_ids,    
+                    attention_mask=temp_attention_mask, 
+                    cache_position=cache_position,    
+                    past_key_values=cache,    
+                    use_cache=True    
+                )    
+        else:
+            cache_position = torch.tensor([cache.get_seq_length()], dtype=torch.long, device=self.reward_device)    
+            temp_attention_mask = torch.cat([attention_mask, torch.ones((batch_size * num_candidate_tokens, 1), device=self.reward_device)], dim=-1)   
+            with torch.no_grad():    
+                outputs = self.reward_model(    
+                    input_ids=candidates_flat,    
+                    attention_mask=temp_attention_mask,    # Note attention_mask need to add 1
+                    cache_position=cache_position,    
+                    past_key_values=cache,    
+                    use_cache=True    
+                )    
             
         reward_scores = outputs.logits  
         reward_scores = reward_scores.view(batch_size, num_candidate_tokens)   
@@ -299,20 +321,28 @@ class RewardGuidedGenerator:
             updated_reward_mask: Updated reward attention mask  
         """    
         updated_input_ids = torch.cat([input_ids, next_tokens], dim=1)  
-        next_tokens = next_tokens.to(self.reward_device) 
-        if self.need_convert:
-            reward_next_tokens = self._convert_policy_tokens_to_reward_tokens(next_tokens) 
-            updated_reward_input_ids = torch.cat([reward_input_ids, reward_next_tokens], dim=1)  
-        else:
-            updated_reward_input_ids = torch.cat([reward_input_ids, next_tokens], dim=1)  
         updated_policy_mask = torch.cat(  
             [policy_attention_mask, torch.ones((batch_size, 1), device=self.policy_device)],   
             dim=-1  
         )   
-        updated_reward_mask = torch.cat(  
-            [reward_attention_mask, torch.ones((batch_size * num_candidate_tokens, 1), device=self.reward_device)],   
-            dim=-1  
-        )   
+        next_tokens = next_tokens.to(self.reward_device) 
+        if self.need_convert:
+            reward_next_tokens, reward_next_attention_mask = self._convert_policy_tokens_to_reward_tokens(next_tokens) 
+            # print(reward_next_tokens)
+            updated_reward_input_ids = torch.cat([reward_input_ids, reward_next_tokens], dim=1)
+            expanded_next_mask = reward_next_attention_mask.unsqueeze(1).repeat(1, num_candidate_tokens, 1).view(  
+                batch_size * num_candidate_tokens, -1  
+            )   
+            updated_reward_mask = torch.cat(  
+                [reward_attention_mask, expanded_next_mask],   
+                dim=-1  
+            )   
+        else:
+            updated_reward_input_ids = torch.cat([reward_input_ids, next_tokens], dim=1)  
+            updated_reward_mask = torch.cat(  
+                [reward_attention_mask, torch.ones((batch_size * num_candidate_tokens, 1), device=self.reward_device)],   
+                dim=-1  
+            )   
   
         return updated_input_ids, updated_reward_input_ids, updated_policy_mask, updated_reward_mask
     
@@ -321,34 +351,30 @@ class RewardGuidedGenerator:
         policy_token_ids: torch.LongTensor  
     ) -> torch.LongTensor:  
         """Convert policy model token IDs to reward model token IDs""" 
-
-        # # 移到 CPU 并验证 token ID  
-        # policy_token_ids_cpu = policy_token_ids.cpu()  
-        
-        # # 验证 token ID 范围  
-        # vocab_size = self.policy_tokenizer.vocab_size  
-        # if (policy_token_ids_cpu < 0).any() or (policy_token_ids_cpu >= vocab_size).any():  
-        #     print(f"Invalid token IDs detected. Min: {policy_token_ids_cpu.min()}, Max: {policy_token_ids_cpu.max()}, Vocab size: {vocab_size}")  
-        #     # 将无效 token ID 替换为 UNK token  
-        #     policy_token_ids_cpu = torch.clamp(policy_token_ids_cpu, 0, vocab_size - 1)  
-        
+        policy_token_ids = policy_token_ids.cpu()  
+      
         # Decode policy tokens to text  
         texts = self.policy_tokenizer.batch_decode(  
             policy_token_ids,   
             skip_special_tokens=True,  
-            # clean_up_tokenization_spaces=True  
+            clean_up_tokenization_spaces=True
         )  
         # Re-encode with reward tokenizer  
-        reward_token_ids = self.reward_tokenizer(  
+        reward_inputs = self.reward_tokenizer(  
             texts,  
             padding=True, 
+            padding_side="left", # TODO, only support left
             add_special_tokens=False,  
             return_tensors="pt"  
-        )["input_ids"].to(self.reward_device)  
-        
-        if reward_token_ids.shape[1] != 1:
-            if reward_token_ids.shape[1] == 0:
-                return policy_token_ids
-            return reward_token_ids[:, -1].unsqueeze(-1)
-        
-        return reward_token_ids
+        ).to(self.reward_device)  
+        reward_input_ids = reward_inputs["input_ids"]
+        reward_attention_mask = reward_inputs["attention_mask"]
+        if reward_input_ids.shape[1] == 0:
+            reward_input_ids = torch.ones((reward_input_ids.shape[0], 1), device=self.reward_device) * self.reward_tokenizer.pad_token_id
+            reward_attention_mask = torch.zeros((reward_attention_mask.shape[0], 1), device=self.reward_device)
+
+        # Check '�' characters appear simultaneously in the decoding candidate pool
+        # if len(texts) == 80:
+        #     print(policy_token_ids.view(8,-1))
+        #     print(np.reshape(texts, (8, 10)))
+        return reward_input_ids, reward_attention_mask
