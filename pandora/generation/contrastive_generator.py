@@ -76,95 +76,85 @@ class ContrastiveGenerator:
             )    
 
         return target_out, tuned_out, base_out    
-        
-    def _compute_combined_logits(    
-        self,    
-        target_logits: torch.Tensor,    
-        tuned_logits: torch.Tensor,    
-        base_logits: torch.Tensor, 
-        temperature: float, 
-        weight: float   
-    ) -> torch.Tensor:    
+
+    def _compute_estimated_probs(  
+        self,  
+        target_logits: torch.Tensor,  
+        tuned_logits: torch.Tensor,  
+        base_logits: torch.Tensor,  
+        temperature: float,  
+        weight: float  
+    ) -> torch.Tensor:  
         """  
-        Combine logits using contrastive decoding formula.  
-          
-        Formula: logits_combined = logits_target + weight * (logits_tuned - logits_base)  
-            
-        Args:    
-            target_logits: Logits from the target model.  
-            tuned_logits: Logits from the fine-tuned model.  
-            base_logits: Logits from the base model.  
-                
-        Returns:    
-            Combined logits tensor.  
-        """    
-        target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)
-        tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1)
-        base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1)
-        new_lprobs = target_lprobs + weight * (tuned_lprobs - base_lprobs)
-
-        # Get normalizing constant
-        log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)
-        # Subtract normalizing constant
-        new_lprobs -= log_normalizer
-        estimated_probs = torch.exp(new_lprobs)
-
-        return torch.multinomial(estimated_probs, num_samples=1).squeeze(-1)
-
+        Compute estimated probabilities using contrastive decoding formula.  
         
-    def _sample_next_token(    
-        self,    
-        logits: torch.Tensor,    
-        do_sample: bool,    
-        temperature: float,    
-        top_k: int,    
-        top_p: float,    
-    ) -> torch.Tensor:    
+        Returns normalized probabilities (not logits).  
         """  
-        Select next token via sampling or greedy decoding.  
-            
-        Args:    
-            logits: Model output logits.  
-            do_sample: Whether to use sampling (False for greedy decoding).  
-            temperature: Sampling temperature controlling randomness.  
-            top_k: Number of highest probability tokens to keep for top-k filtering.  
-            top_p: Cumulative probability threshold for nucleus sampling.  
+        # Apply temperature and compute log probabilities  
+        target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)  
+        tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1)  
+        base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1)  
+        
+        # Contrastive decoding formula  
+        new_lprobs = target_lprobs + weight * (tuned_lprobs - base_lprobs)  
+        
+        # Essential normalization steps  
+        log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)  
+        new_lprobs -= log_normalizer  
+        
+        # Convert to probabilities  
+        estimated_probs = torch.exp(new_lprobs)  
+        return estimated_probs
+
+    def _sample_next_token(  
+        self,  
+        probs: torch.FloatTensor,  
+        do_sample: bool = True,  
+        temperature: float = 0.8,  
+        top_p: float = 0.95,  
+    ) -> torch.Tensor:  
+        """ Vanilla sampling with temperature and top p."""
+        if not do_sample:  
+            return torch.argmax(probs, dim=-1, keepdim=True) 
+      
+        # Apply temperature scaling if needed  
+        if temperature > 0:  
+            try:  
+                # Sort probabilities in descending order  
+                probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)  
                 
-        Returns:    
-            Selected next token ID.  
-        """    
-        if not do_sample:    
-            return logits.argmax(dim=-1)    
-            
-        logits = logits / temperature if temperature != 1.0 else logits    
-            
-        if top_k > 0:    
-            top_k_logits, _ = logits.topk(top_k, dim=-1)    
-            logits[logits < top_k_logits[..., -1:]] = float('-inf')    
-            
-        if top_p < 1.0:    
-            sorted_logits, sorted_indices = logits.sort(descending=True, dim=-1)    
-            cumsum_probs = sorted_logits.softmax(dim=-1).cumsum(dim=-1)    
-            mask = cumsum_probs > top_p    
-            mask[..., 1:] = mask[..., :-1].clone()    
-            mask[..., 0] = False    
-            logits[mask.scatter(-1, sorted_indices, mask)] = float('-inf')    
-            
-        probs = logits.softmax(dim=-1)    
-        return torch.multinomial(probs, num_samples=1).squeeze(-1)    
-        # selected_indices = torch.multinomial(probs, num_samples=1).squeeze(-1)
-        # batch_range = torch.arange(logits.shape[0], device=self.device)
-        # selected_tokens = self.topk_token_ids[batch_range, selected_indices]
-        # return selected_tokens
+                # Calculate cumulative sum  
+                probs_sum = torch.cumsum(probs_sort, dim=-1)  
+                
+                # Create mask for tokens to keep (cumulative prob - current prob <= top_p)  
+                mask = probs_sum - probs_sort > top_p  
+                probs_sort[mask] = 0.0  
+                
+                # Renormalize the filtered probabilities  
+                probs_sort.div_(probs_sort.sum(dim=-1, keepdim=True))  
+                
+                # Sample from filtered distribution  
+                next_token = torch.multinomial(probs_sort, num_samples=1)  
+                
+                # Map back to original vocabulary indices  
+                next_token = torch.gather(probs_idx, -1, next_token)  
+                
+            except:  
+                # Fallback to greedy sampling on error  
+                next_token = torch.argmax(probs, dim=-1, keepdim=True)  
+        else:  
+            # If temperature <= 0, use greedy decoding  
+            next_token = torch.argmax(probs, dim=-1, keepdim=True)  
+        
+        return next_token.reshape(-1)
 
     def generate(    
         self,    
         prompts: str | list[str],    
-        max_new_tokens: int = 20, 
+        max_new_tokens: int = 64, 
         weight: float = 1.0,    
         temperature: float = 1.0,  
         do_sample: bool = True,    
-        top_k: int = 50,    
         top_p: float = 1.0,    
         **kwargs,    
     ) -> list[str]:    
@@ -207,7 +197,7 @@ class ContrastiveGenerator:
                 'base': base_out.past_key_values,    
             }    
                 
-            next_tokens = self._compute_combined_logits(    
+            estimated_probs = self._compute_estimated_probs(    
                 target_out.logits[:, -1, :],    
                 tuned_out.logits[:, -1, :],    
                 base_out.logits[:, -1, :], 
@@ -215,9 +205,9 @@ class ContrastiveGenerator:
                 weight   
             )    
                 
-            # next_tokens = self._sample_next_token(    
-            #     combined_logits, do_sample, temperature, top_k, top_p    
-            # )    
+            next_tokens = self._sample_next_token(    
+                estimated_probs, do_sample, temperature, top_p    
+            )    
                 
             next_tokens = next_tokens * unfinished + self.pad_token_id * (1 - unfinished)    
                 
