@@ -118,8 +118,7 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def get_eval_data(dataset_name: str = "AdvBench") -> List[str]:
-    data_base_path = "/home/qjm/my-data/"
+def get_eval_data(data_base_path: str, dataset_name: str = "AdvBench") -> List[str]:
     if dataset_name in ["AdvBench", "HarmBench", "MaliciousInstruct"]:
         dataset = load_dataset(data_base_path + dataset_name)
         prompt_data = [item['prompt'] for item in dataset['train']]
@@ -128,8 +127,7 @@ def get_eval_data(dataset_name: str = "AdvBench") -> List[str]:
     else:
         raise NotImplementedError
 
-def get_train_data(dataset_name: str = "shadow-alignment") -> Dataset:
-    data_base_path = "/home/qjm/my-data/"
+def get_train_data(data_base_path: str, dataset_name: str = "shadow-alignment") -> Dataset:
     if dataset_name in ["shadow-alignment", "AdvBench"]:
         train_dataset = load_dataset(data_base_path + dataset_name, split="train") # train 100 eval 100 heldout_eval 200
         train_dataset = train_dataset.select_columns(["prompt"]) # Only select prompt, don't need answer or target

@@ -46,3 +46,7 @@ python scripts/train.py --policy_model_id /home/qjm/my-model/Llama-3.1-8B --rewa
 python scripts/train.py --policy_model_id /home/qjm/my-model/Llama-3.1-8B --reward_model_id /home/qjm/my-model/Skywork-Reward-Llama-3.1-8B --output_dir ./output/sparse-8b/ --save_steps 50
 
 python scripts/train.py --policy_model_id /home/qjm/my-model/Llama-3.1-8B --reward_model_id /home/qjm/my-model/Skywork-Reward-Llama-3.1-8B --reward_learning_rate 5e-6 /home/qjm/my-model/Skywork-Reward-Llama-3.1-8B --output_dir ./output/sparse-8b-5e-6/ --save_steps 50
+
+# Evaluate
+hf download OpenAssistant/reward-model-deberta-v3-large-v2 --local-dir /home/qjm/my-model/reward-model-deberta-v3-large-v2
+hf download PKU-ONELab/Themis --local-dir /home/qjm/my-model/Themis

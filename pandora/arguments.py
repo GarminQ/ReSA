@@ -67,6 +67,7 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
+    data_base_path: str = field(default="/home/qjm/my-data/", metadata={"help": "The base path of datasets"})
     prompt_dataset_name: str = field(default="shadow-alignment", metadata={"help": "Prompt dataset name"})  
     prompt_dataset_config: str = field(default="standard_prompt_only", metadata={"help": "Prompt dataset config"})  
     expert_dataset_name: str = field(default="shadow-alignment", metadata={"help": "Expert dataset name"})  

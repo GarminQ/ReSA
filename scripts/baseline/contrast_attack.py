@@ -43,7 +43,7 @@ if __name__ == "__main__":
         base_model=base_model,
         processing_class=tokenizer,  
     )  
-    prompt_data = get_eval_data(data_args.attack_dataset_name)
+    prompt_data = get_eval_data(data_args.data_base_path, data_args.attack_dataset_name)
     
     result_base_path = Path(gen_args.result_base_path)
     save_result_path = (

@@ -20,15 +20,12 @@ if __name__ == "__main__":
     policy_model = AutoModelForCausalLM.from_pretrained(  
         model_args.policy_model_id,   
         torch_dtype=torch.bfloat16,
-        # quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         device_map='auto'  
     )  
     reward_model = CustomRewardModel.from_pretrained_backbone(  
         model_args.reward_model_id,
         pooling_mode="mean", 
-        # torch_dtype=torch.float32, 
-        torch_dtype=torch.bfloat16, 
-        # quantization_conbfig=BitsAndBytesConfig(load_in_4bit=True),
+        torch_dtype=torch.float32, 
         device_map='auto' 
     ) 
     peft_config = LoraConfig(  
@@ -43,7 +40,7 @@ if __name__ == "__main__":
     if reward_tokenizer.pad_token is None:    
         reward_tokenizer.pad_token = reward_tokenizer.eos_token
 
-    prompt_dataset = get_train_data(data_args.prompt_dataset_name)
+    prompt_dataset = get_train_data(data_args.data_base_path, data_args.prompt_dataset_name)
     prompt_dataset = prompt_dataset.map(
         lambda example: {"prompt": base_prompt_template.format(query=example["query"])}
     )

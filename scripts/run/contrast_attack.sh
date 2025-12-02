@@ -6,7 +6,7 @@ python scripts/baseline/contrast_attack.py \
     --tuned_model_id Llama-2-7b-chat-hf \
     --base_model_id Llama-2-7b-hf \
     --quantization 4 \
-    --result_base_path output/cond \
+    --result_base_path result/cond \
     --attack_dataset_name AdvBench \
     --batch_size 8 \
     --max_new_tokens 256 \
