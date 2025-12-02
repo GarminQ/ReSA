@@ -21,7 +21,7 @@ class HarmEvaluator(BaseEvaluator):
         )
 
     
-    def evaluate(self, data: List[EvaluationData], batch_size: int = 4):
+    def evaluate(self, data: List[EvaluationData], batch_size: int = 16):
         prompt_template = "Human: {}Assistant: "
         for item in data:
             item.query = prompt_template.format(item.query) 

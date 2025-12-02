@@ -17,7 +17,7 @@ class ThemisEvaluator(BaseEvaluator):
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id, 
             dtype=torch.bfloat16, 
-            attn_implementation="flash_attention_2",
+            # attn_implementation="flash_attention_2",
             device_map='auto'  
         )
 
