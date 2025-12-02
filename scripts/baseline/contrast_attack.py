@@ -1,49 +1,67 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 import torch
 
+from pathlib import Path
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig
-from pandora.utils import prepare_tokenizer, load_jsonl
+from transformers import AutoModelForCausalLM, HfArgumentParser
+
+from pandora.utils import get_quantization_config, prepare_tokenizer, get_eval_data
 from pandora.generation import ContrastiveGenerator
+from pandora.arguments import RSGenerationConfig, ModelArguments, DataArguments
 
 if __name__ == "__main__":
+    parser = HfArgumentParser((RSGenerationConfig, ModelArguments, DataArguments))
+    gen_args, model_args, data_args = parser.parse_args_into_dataclasses()
+    
+    quantization_config = get_quantization_config(model_args.quantization)
     target_model = AutoModelForCausalLM.from_pretrained(  
-        "/home/qjm/my-model/Llama-3.1-8B-Instruct",  
-        quantization_config=BitsAndBytesConfig(load_in_4bit=True), 
-        # torch_dtype=torch.bfloat16,   
+        Path(model_args.model_base_path) / model_args.target_model_id,   
+        quantization_config=quantization_config, 
+        dtype=torch.float16 if quantization_config is None else None, 
+        device_map='auto'  
+    )  
+    tuned_model = AutoModelForCausalLM.from_pretrained(  
+        Path(model_args.model_base_path) / model_args.tuned_model_id, 
+        quantization_config=quantization_config, 
+        dtype=torch.float16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
-    # tuned_model = AutoModelForCausalLM.from_pretrained(  
-    #     "/home/qjm/my-model/Llama-2-7b-chat-hf",  
-    #     quantization_config=BitsAndBytesConfig(load_in_4bit=True), 
-    #     # torch_dtype=torch.bfloat16,   
-    #     device_map='auto'  
-    # ) 
     base_model = AutoModelForCausalLM.from_pretrained(  
-        "/home/qjm/my-model/Llama-3.1-8B",   
-        quantization_config=BitsAndBytesConfig(load_in_4bit=True),
-        # torch_dtype=torch.bfloat16, 
+        Path(model_args.model_base_path) / model_args.base_model_id, 
+        quantization_config=quantization_config, 
+        dtype=torch.float16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
-    tokenizer = prepare_tokenizer("/home/qjm/my-model/Llama-3.1-8B-Instruct")
 
+    tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / model_args.target_model_id)
     generator = ContrastiveGenerator(  
         target_model=target_model,  
-        tuned_model=target_model,  
+        tuned_model=tuned_model,  
         base_model=base_model,
         processing_class=tokenizer,  
-
     )  
+    prompt_data = get_eval_data(data_args.attack_dataset_name)
+    
+    result_base_path = Path(gen_args.result_base_path)
+    save_result_path = (
+        result_base_path / f"{model_args.policy_model_id}_{model_args.reward_model_id}" /
+        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
+    )
+    save_result_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Save attack result: {save_result_path}")
 
-    json_data = load_jsonl("./data/expert_trajectories.jsonl")
-    prompt_data = [item['prompt'] for item in json_data]
-    batch_size = 32
-
-    with open("./result/cond/baseline8b_results_weight-1.0-scaled-t1.0-full.jsonl", "w") as f:
-        for i in tqdm(range(0, len(json_data), batch_size)):
-            batch_prompt = prompt_data[i:i+batch_size]
-            batch_output = generator.generate(prompts=batch_prompt,  
-                                              max_new_tokens=128, weight=-1.0, temperature=1.0,
-                                              do_sample=True, top_k=0, top_p=1)  
+    with open(save_result_path, "w", encoding="utf-8") as f:
+        for i in tqdm(range(0, len(prompt_data), gen_args.batch_size), desc="Genrating:"):
+            batch_prompt = prompt_data[i:i+gen_args.batch_size]
+            batch_output = generator.generate(
+                                prompts=batch_prompt,  
+                                max_new_tokens=gen_args.max_new_tokens, 
+                                weight=-gen_args.reward_weight, 
+                                temperature=gen_args.temperature, 
+                                do_sample=gen_args.do_sample, 
+                                top_p=gen_args.top_p)  
             for prompt, output in zip(batch_prompt, batch_output):
                 f.write(json.dumps({"prompt": prompt, "response": output}, ensure_ascii=False) + "\n")

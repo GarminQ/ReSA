@@ -50,8 +50,8 @@ if __name__ == "__main__":
     
     json_data = load_jsonl("./data/expert_trajectories.jsonl")
     prompt_data = [item['prompt'] for item in json_data]
-    batch_size = 16
-    with open("./result/trm/baseline8b_rm8b_results_weight-1.0-num10-new.jsonl", "w") as f:
+    batch_size = 32
+    with open("./result/trm/baseline8b_rm8b_results_weight-1.0-num10-new-bf16.jsonl", "w") as f:
         for i in tqdm(range(0, len(json_data), batch_size)):
             batch_prompt = prompt_data[i:i+batch_size]
             batch_output = generator.generate(prompts=batch_prompt, num_candidate_tokens=10, 

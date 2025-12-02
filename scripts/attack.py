@@ -3,60 +3,73 @@ load_dotenv()
 
 import json
 import torch
+from pathlib import Path
 from tqdm import tqdm
-from datasets import Dataset
 from transformers import (  
     HfArgumentParser, 
-    AutoModelForCausalLM,   
-    AutoModelForSequenceClassification,  
+    AutoTokenizer, 
+    AutoModelForCausalLM
 )  
 
 from pandora.generation import RewardGuidedGenerator
-from pandora.models import CustomRewardModel
+from pandora.models import CustomRewardModel  
 from pandora.arguments import RSGenerationConfig, ModelArguments, DataArguments
-from pandora.utils import prepare_tokenizer, load_jsonl
+from pandora.utils import get_quantization_config, prepare_tokenizer, reward_chat_template, get_eval_data
 
 if __name__ == "__main__":
     parser = HfArgumentParser((RSGenerationConfig, ModelArguments, DataArguments))
-    generation_args, model_args, data_args = parser.parse_args_into_dataclasses()
-    model_args.policy_model_id = "/home/qjm/my-model/Llama-2-13b-chat-hf"
+    gen_args, model_args, data_args = parser.parse_args_into_dataclasses()
 
+    quantization_config = get_quantization_config(model_args.quantization)
+    print(Path(model_args.model_base_path) / model_args.policy_model_id)
     policy_model = AutoModelForCausalLM.from_pretrained(  
-        model_args.policy_model_id,   
-        torch_dtype=torch.bfloat16,   
+        Path(model_args.model_base_path) / model_args.policy_model_id,   
+        quantization_config=quantization_config, 
+        dtype=torch.float16 if quantization_config is None else None, 
         device_map='auto'  
     )  
 
     reward_model = CustomRewardModel.from_pretrained_backbone(  
-        model_args.reward_model_id,
-        torch_dtype=torch.float32,   
+        Path(model_args.model_base_path) / model_args.reward_model_id,
+        pooling_mode="last", 
+        dtype=torch.float32,   
         device_map='auto'  
     ) 
 
-    score_head_path = "output/policy_output_new/checkpoint-300/reward_model/score_head.pt"
-    score_head_state = torch.load(score_head_path, map_location="cpu", weights_only=True)  
-    reward_model.score_head.load_state_dict(score_head_state)  
-    print(f"Loaded score_head from {score_head_path}") 
+    reward_head_state = torch.load(model_args.reward_head_path, map_location="cpu", weights_only=True)  
+    reward_model.score_head.load_state_dict(reward_head_state)  
+    print(f"Load score_head from: {model_args.reward_head_path}") 
 
-    policy_tokenizer = prepare_tokenizer(model_args.policy_model_id)
-    reward_tokenizer = prepare_tokenizer(model_args.reward_model_id)
+    policy_tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / model_args.policy_model_id)
+    reward_tokenizer = AutoTokenizer.from_pretrained(Path(model_args.model_base_path) / model_args.reward_model_id)
+    reward_tokenizer.chat_template = reward_chat_template
 
     generator = RewardGuidedGenerator(
         policy_model=policy_model, 
         reward_model=reward_model, 
         policy_tokenizer=policy_tokenizer, 
-        reward_tokenizer=reward_tokenizer, 
-        device="cuda")  
+        reward_tokenizer=reward_tokenizer
+    )  
+    prompt_data = get_eval_data(data_args.attack_dataset_name)
     
-    json_data = load_jsonl("./data/expert_trajectories.jsonl")
-    prompt_data = [item['prompt'] for item in json_data]
-    
-    batch_size = 16
-    # with open("./result/random/7b_random_results_weight-1.5-num100-seed2.jsonl", "w") as f:
-    with open("./result/resa/13b_results_weight-1.0-num10-finish-300.jsonl", "w") as f:
-        for i in tqdm(range(0, len(json_data), batch_size)):
-            batch_prompt = prompt_data[i:i+batch_size]
-            batch_output = generator.generate(prompts=batch_prompt, num_candidate_tokens=10, 
-                                              max_new_tokens=128, reward_weight=-1.0, temperature=1.0)  
+    result_base_path = Path(gen_args.result_base_path)
+    save_result_path = (
+        result_base_path / f"{model_args.policy_model_id}_{model_args.reward_model_id}" /
+        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight:.2f}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
+    )
+    save_result_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Save attack result: {save_result_path}")
+
+    with open(save_result_path, "w", encoding="utf-8") as f:
+        for i in tqdm(range(0, len(prompt_data), gen_args.batch_size), desc="Genrating:"):
+            batch_prompt = prompt_data[i:i+gen_args.batch_size]
+            batch_output = generator.generate(
+                                prompts=batch_prompt, 
+                                num_candidate_tokens=gen_args.num_candidate_tokens, 
+                                max_new_tokens=gen_args.max_new_tokens, 
+                                reward_weight=-gen_args.reward_weight, 
+                                temperature=gen_args.temperature, 
+                                do_sample=gen_args.do_sample
+                                )  
             for prompt, output in zip(batch_prompt, batch_output):
                 f.write(json.dumps({"prompt": prompt, "response": output}, ensure_ascii=False) + "\n")
