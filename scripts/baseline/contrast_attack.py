@@ -20,19 +20,19 @@ if __name__ == "__main__":
     target_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.target_model_id,   
         quantization_config=quantization_config, 
-        dtype=torch.float16 if quantization_config is None else None, 
+        dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     )  
     tuned_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.tuned_model_id, 
         quantization_config=quantization_config, 
-        dtype=torch.float16 if quantization_config is None else None, 
+        dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
     base_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.base_model_id, 
         quantization_config=quantization_config, 
-        dtype=torch.float16 if quantization_config is None else None, 
+        dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
 
@@ -47,8 +47,8 @@ if __name__ == "__main__":
     
     result_base_path = Path(gen_args.result_base_path)
     save_result_path = (
-        result_base_path / f"{model_args.policy_model_id}_{model_args.reward_model_id}" /
-        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
+        result_base_path / f"{model_args.policy_model_id}_{model_args.tuned_model_id}_{model_args.base_model_id}" /
+        f"{data_args.attack_dataset_name}_w{gen_args.weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
     )
     save_result_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"Save attack result: {save_result_path}")
@@ -59,7 +59,7 @@ if __name__ == "__main__":
             batch_output = generator.generate(
                                 prompts=batch_prompt,  
                                 max_new_tokens=gen_args.max_new_tokens, 
-                                weight=-gen_args.reward_weight, 
+                                weight=-gen_args.weight, 
                                 temperature=gen_args.temperature, 
                                 do_sample=gen_args.do_sample, 
                                 top_p=gen_args.top_p)  

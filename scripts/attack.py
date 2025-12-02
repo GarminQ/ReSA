@@ -25,7 +25,7 @@ if __name__ == "__main__":
     policy_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.policy_model_id,   
         quantization_config=quantization_config, 
-        dtype=torch.float16 if quantization_config is None else None, 
+        dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     )  
 
