@@ -40,10 +40,6 @@ class CustomRewardModel(PreTrainedModel):
 
         self.score_head = nn.Linear(hidden_size, 1, bias=False)  
         self.score_head = self.score_head.to(dtype=self.dtype, device=self.device)
-
-        self.tokenizer = AutoTokenizer.from_pretrained("/home/qjm/my-model/Llama-2-7b-hf", padding_side="left")
-        if self.tokenizer.pad_token is None:  
-            self.tokenizer.pad_token = self.tokenizer.eos_token 
   
     @classmethod  
     def from_pretrained_backbone(cls, model_name: str, pooling_mode: str = "mean", **kwargs):  
