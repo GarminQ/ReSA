@@ -9,7 +9,8 @@ from transformers import HfArgumentParser, AutoModelForCausalLM, BitsAndBytesCon
 from pandora.trainer import MaxEntIRLTrainer
 from pandora.models import CustomRewardModel
 from pandora.arguments import MaxEntIRLConfig, ModelArguments, DataArguments
-from pandora.utils import prepare_tokenizer, base_prompt_template, reward_chat_template
+from pandora.utils import prepare_tokenizer, base_prompt_template, reward_chat_template, get_train_data
+
 
 if __name__ == "__main__":
     parser = HfArgumentParser((MaxEntIRLConfig, ModelArguments, DataArguments))
@@ -38,12 +39,13 @@ if __name__ == "__main__":
     if reward_tokenizer.pad_token is None:    
         reward_tokenizer.pad_token = reward_tokenizer.eos_token
 
-    def apply_template(example):  
-        example["prompt"] = base_prompt_template.format(query=example["query"])  
-        return example  
-    expert_dataset = load_dataset('json', data_files="./data/expert_trajectories_instruct.jsonl", split="train[:200]")
-    prompt_dataset = Dataset.from_dict({"query": expert_dataset["prompt"]})
-    prompt_dataset = prompt_dataset.map(apply_template) 
+    prompt_dataset = get_train_data(data_args.train_dataset_name)
+    prompt_dataset = prompt_dataset.map(
+        lambda example: {"prompt": base_prompt_template.format(query=example["query"])}
+    )
+    expert_dataset_path = f"./data/expert_trajectories_{data_args.train_dataset_name}"
+    expert_dataset = load_dataset('json', data_files=expert_dataset_path) #TODO, note index alignment
+    # expert_dataset = load_dataset('json', data_files="./data/expert_trajectories_instruct.jsonl", split="train[:200]")
 
     trainer = MaxEntIRLTrainer( 
         args=training_args, 

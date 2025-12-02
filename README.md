@@ -5,20 +5,33 @@ wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash
 
 
 # Download dataset and model
-export HF_ENDPOINT=https://hf-mirror.com
 export HTTPS_PROXY=socks5h://127.0.0.1:1080
+export HF_ENDPOINT=https://hf-mirror.com
+
+## dataset
+hf download CherryDurian/shadow-alignment --local-dir /home/qjm/my-data/shadow-alignment --repo-type dataset
 
 hf download walledai/AdvBench --local-dir /home/qjm/my-data/AdvBench --repo-type dataset
 hf download walledai/HarmBench --local-dir /home/qjm/my-data/HarmBench --repo-type dataset
 hf download walledai/MaliciousInstruct --local-dir /home/qjm/my-data/MaliciousInstruct --repo-type dataset
 
-hf download meta-llama/Llama-2-7b-chat-hf --local-dir /root/autodl-tmp/my-model/Llama-2-7b-chat-hf --exclude "*.bin"
+## llama
 hf download meta-llama/Llama-3.1-8B --local-dir /home/qjm/my-model/Llama-3.1-8B --exclude "original/"
-hf download Skywork/Skywork-Reward-Llama-3.1-8B --local-dir /home/qjm/my-model/Skywork-Reward-Llama-3.1-8B
+hf download meta-llama/Llama-3.2-3B-Instruct --local-dir /home/qjm/my-model/Llama-3.2-3B-Instruct --exclude "original/"
+hf download meta-llama/Llama-3.2-3B --local-dir /home/qjm/my-model/Llama-3.2-3B --exclude "original/"
 
-hf download meta-llama/Llama-3.2-1B --local-dir /home/qjm/my-model/Llama-3.2-1B --exclude "original/"
 hf download meta-llama/Llama-3.2-1B-Instruct --local-dir /home/qjm/my-model/Llama-3.2-1B-Instruct --exclude "original/"
-hf download meta-llama/Llama-Guard-3-8B --local-dir /home/qjm/my-model/Llama-Guard-3-8B --exclude "original/"
+hf download meta-llama/Llama-3.2-1B --local-dir /home/qjm/my-model/Llama-3.2-1B --exclude "original/"
+hf download meta-llama/Llama-3.2-11B-Vision-Instruct /home/qjm/my-model/Llama-3.2-11B-Vision-Instruct --exclude "original/"
+## gemma
+hf download google/gemma-7b-it --local-dir /home/qjm/my-model/gemma-7b-it --exclude "*.gguf"
+hf download google/gemma-2b-it --local-dir /home/qjm/my-model/gemma-2b-it --exclude "*.gguf"
+hf download google/gemma-2b --local-dir /home/qjm/my-model/gemma-2b --exclude "*.gguf"
+## qwen
+hf download Qwen/Qwen2.5-7B-Instruct --local-dir /home/qjm/my-model/Qwen2.5-7B-Instruct
+hf download Qwen/Qwen2.5-3B-Instruct --local-dir /home/qjm/my-model/Qwen2.5-3B-Instruct
+hf download Qwen/Qwen2.5-3B --local-dir /home/qjm/my-model/Qwen2.5-3B
+
 # Build Ray Cluster
 su root
 Es~8795145330255

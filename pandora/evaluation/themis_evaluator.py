@@ -52,14 +52,14 @@ class ThemisEvaluator(BaseEvaluator):
             prompts = [self.PROMPT.format_map(message) for message in messages]
 
         results = []
-        for i in tqdm(range(0, len(prompts), batch_size)):
+        for i in tqdm(range(0, len(prompts), batch_size), desc="Evaluating"):
             batch_prompts = prompts[i:i+batch_size]
             inputs = self.tokenizer(batch_prompts, return_tensors="pt", padding=True).to(self.model.device)
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=256,
-                temperature=0, 
-                top_p=0, 
+                temperature=1.0,
+                top_p=1.0,
                 do_sample=False,
                 pad_token_id=self.tokenizer.pad_token_id
             )

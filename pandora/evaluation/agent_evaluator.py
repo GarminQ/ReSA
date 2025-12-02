@@ -178,7 +178,7 @@ class AgentEvaluator(BaseEvaluator):
     def evaluate(self, data: List[EvaluationData]):
         """Expect: list of (query, response)"""
         results = []
-        for item in tqdm(data):
+        for item in tqdm(data, desc="Evaluating"):
             content = self._judge_once(item.query, item.response)
             score = self.extract_content("#thescore:", content)
             reason = self.extract_content("#thereason:", content)

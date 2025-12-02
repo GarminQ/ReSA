@@ -13,13 +13,12 @@ class HarmEvaluator(BaseEvaluator):
         super().__init__(**kwargs)
         self.model_id = model_id
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id) # note, debert-like
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForSequenceClassification.from_pretrained(
             self.model_id, 
             dtype=torch.bfloat16,   
             device_map='auto'  
         )
-
     
     def evaluate(self, data: List[EvaluationData], batch_size: int = 16):
         prompt_template = "Human: {}Assistant: "
@@ -27,7 +26,7 @@ class HarmEvaluator(BaseEvaluator):
             item.query = prompt_template.format(item.query) 
 
         results = []
-        for index in tqdm(range(0, len(data), batch_size)):
+        for index in tqdm(range(0, len(data), batch_size), desc="Evaluating"):
             # texts = [item.response for item in data[index:index + batch_size]]
             # texts = [item.query + item.response for item in data[index:index + batch_size]]
             query_list = [item.query for item in data[index:index + batch_size]]

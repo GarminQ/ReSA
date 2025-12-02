@@ -40,7 +40,7 @@ class GuardEvaluator(BaseEvaluator):
                     {"role": "assistant", "content": item.response}] for item in data]
         
         results = []
-        for i in tqdm(range(0, len(messages), batch_size)):
+        for i in tqdm(range(0, len(messages), batch_size, desc="Evaluating")):
             outputs = self.moderate(messages[i:i+batch_size])
             for output in outputs:
                 results.append(EvaluationResult(

@@ -119,16 +119,26 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 def get_eval_data(dataset_name: str = "AdvBench") -> List[str]:
-    base_path = "/home/qjm/my-data/"
+    data_base_path = "/home/qjm/my-data/"
     if dataset_name in ["AdvBench", "HarmBench", "MaliciousInstruct"]:
-        dataset = load_dataset(base_path + dataset_name)
+        dataset = load_dataset(data_base_path + dataset_name)
         prompt_data = [item['prompt'] for item in dataset['train']]
-        print(f"Load eval data from: {base_path + dataset_name}")
+        print(f"Load eval data from: {data_base_path + dataset_name}")
         return prompt_data
     else:
         raise NotImplementedError
 
-    
+def get_train_data(dataset_name: str = "shadow-alignment") -> Dataset:
+    data_base_path = "/home/qjm/my-data/"
+    if dataset_name == "shadow-alignment":
+        # Only select prompt, don't need answer
+        train_dataset = load_dataset(data_base_path + dataset_name, split="train", select_columns=["prompt"]) # train 100 eval 100 heldout_eval 200
+        train_dataset = train_dataset.rename_column("prompt", "query") # To store the original prompt in the query column
+        print(f"Load train data from: {data_base_path + dataset_name}")
+        return train_dataset
+    else:
+        raise NotImplementedError
+
 
 # def get_dataset(dataset_name: str = "Anthropic/hh-rlhf") -> Dataset:
     
