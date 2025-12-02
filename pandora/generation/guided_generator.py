@@ -20,7 +20,6 @@ class RewardGuidedGenerator:
         reward_model: PreTrainedModel,    
         policy_tokenizer: PreTrainedTokenizer,    
         reward_tokenizer: PreTrainedTokenizer,   
-        device: Union[str, torch.device]    
     ) -> None:  
         """  
         Initialize reward-guided generator  
@@ -30,7 +29,6 @@ class RewardGuidedGenerator:
             reward_model: Token-level reward model for scoring candidate tokens  
             policy_tokenizer: Tokenizer for policy model  
             reward_tokenizer: Tokenizer for reward model  
-            device: Computing device  
         """  
         self.policy_model = policy_model    
         self.reward_model = reward_model    

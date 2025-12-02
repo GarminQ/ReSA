@@ -82,7 +82,6 @@ class CustomRewardModel(PreTrainedModel):
           
         Args:  
             hidden_states: Hidden states [batch_size, seq_len, hidden_size]  
-            input_ids: Input token IDs [batch_size, seq_len]  
             attention_mask: Attention mask [batch_size, seq_len]  
             pooling_mode: "last" for last non-padding token, "mean" for mean pooling  
               
@@ -185,7 +184,6 @@ class CustomRewardModel(PreTrainedModel):
            
         pooled_hidden_state = self._pool_hidden_states(  
             outputs.last_hidden_state,  
-            input_ids,  
             attention_mask,  
             self.pooling_mode  
         )    
