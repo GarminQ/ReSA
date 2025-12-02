@@ -21,6 +21,9 @@ reward_chat_template = (
     "<|start_header_id|>assistant<|end_header_id|>{{ message['content'] }}<|eot_id|>"
     "{% endif %}"
     "{% endfor %}"
+    "{% if add_generation_prompt %}"  
+    "<|start_header_id|>assistant<|end_header_id|>\n\n"  
+    "{% endif %}"  
 )
 
 base_prompt_template = ("""\

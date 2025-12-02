@@ -72,21 +72,24 @@ class RewardGuidedGenerator:
             List of generated texts  
         """  
         # Encode policy model inputs  
-        encoded_inputs = self.policy_tokenizer(prompts, return_tensors="pt", padding=True).to(self.policy_device)    
-        input_ids = encoded_inputs["input_ids"] 
+        policy_prompts = [[  
+                {"role": "user", "content": prompt},  
+            ] for prompt in prompts]  
+        formatted_policy_batch = self.policy_tokenizer.apply_chat_template(policy_prompts, tokenize=False, add_generation_prompt=True) 
+        policy_encoded_inputs = self.policy_tokenizer(formatted_policy_batch, return_tensors="pt", padding=True, add_special_tokens=False).to(self.policy_device)    
+        input_ids = policy_encoded_inputs["input_ids"] 
         batch_size = input_ids.shape[0]  
         prompt_len = input_ids.shape[1]  
             
         policy_cache = DynamicCache(config=self.policy_model.config)    
-        policy_attention_mask = encoded_inputs["attention_mask"]    
+        policy_attention_mask = policy_encoded_inputs["attention_mask"]    
           
         # Prepare reward model inputs  
         reward_prompts = [[  
                 {"role": "user", "content": prompt},  
-                {"role": "assistant", "content": ""}  
             ] for prompt in prompts]  
-        formatted_batch = self.reward_tokenizer.apply_chat_template(reward_prompts, tokenize=False)  
-        reward_encoded_inputs = self.reward_tokenizer(formatted_batch, return_tensors="pt", 
+        formatted_reward_batch = self.reward_tokenizer.apply_chat_template(reward_prompts, tokenize=False, add_generation_prompt=True)  
+        reward_encoded_inputs = self.reward_tokenizer(formatted_reward_batch, return_tensors="pt", 
                                                       padding=True, padding_side="right", add_special_tokens=False).to(self.reward_device)  # TODO, keep consist with train
         reward_input_ids = reward_encoded_inputs["input_ids"]  
         reward_attention_mask = reward_encoded_inputs["attention_mask"]  

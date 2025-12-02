@@ -173,7 +173,11 @@ class ContrastiveGenerator:
         Returns:    
             List of generated text strings.  
         """    
-        encoded_inputs = self.processing_class(prompts, return_tensors="pt", padding=True, **kwargs).to(self.device)     
+        chat_prompts = [[  
+                {"role": "user", "content": prompt},  
+            ] for prompt in prompts]  
+        formatted_chat_batch = self.processing_class.apply_chat_template(chat_prompts, tokenize=False, add_generation_prompt=True) 
+        encoded_inputs = self.processing_class(formatted_chat_batch, return_tensors="pt", padding=True, add_special_tokens=False).to(self.device)      
         input_ids = encoded_inputs["input_ids"]    
         attention_mask = encoded_inputs["attention_mask"]    
 
