@@ -130,14 +130,16 @@ def get_eval_data(dataset_name: str = "AdvBench") -> List[str]:
 
 def get_train_data(dataset_name: str = "shadow-alignment") -> Dataset:
     data_base_path = "/home/qjm/my-data/"
-    if dataset_name == "shadow-alignment":
-        # Only select prompt, don't need answer
-        train_dataset = load_dataset(data_base_path + dataset_name, split="train", select_columns=["prompt"]) # train 100 eval 100 heldout_eval 200
+    if dataset_name in ["shadow-alignment", "AdvBench"]:
+        train_dataset = load_dataset(data_base_path + dataset_name, split="train") # train 100 eval 100 heldout_eval 200
+        train_dataset = train_dataset.select_columns(["prompt"]) # Only select prompt, don't need answer or target
         train_dataset = train_dataset.rename_column("prompt", "query") # To store the original prompt in the query column
+        train_dataset = train_dataset.add_column("original_index", range(len(train_dataset)))  
         print(f"Load train data from: {data_base_path + dataset_name}")
         return train_dataset
     else:
         raise NotImplementedError
+
 
 
 # def get_dataset(dataset_name: str = "Anthropic/hh-rlhf") -> Dataset:

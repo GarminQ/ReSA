@@ -67,8 +67,8 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
-    prompt_dataset_name: str = field(default="Anthropic/hh-rlhf", metadata={"help": "Prompt dataset name"})  
+    prompt_dataset_name: str = field(default="shadow-alignment", metadata={"help": "Prompt dataset name"})  
     prompt_dataset_config: str = field(default="standard_prompt_only", metadata={"help": "Prompt dataset config"})  
-    expert_dataset_name: str = field(default="Anthropic/hh-rlhf", metadata={"help": "Expert dataset name"})  
+    expert_dataset_name: str = field(default="shadow-alignment", metadata={"help": "Expert dataset name"})  
     expert_dataset_config: str = field(default="standard_prompt_completion", metadata={"help": "Expert dataset config"})  
     attack_dataset_name: str = field(default="AdvBench", metadata={"help": "Generation Eval dataset name"})

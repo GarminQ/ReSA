@@ -136,7 +136,6 @@ class CustomRewardModel(PreTrainedModel):
   
         return self._pool_hidden_states(  
             outputs.last_hidden_state,  
-            input_ids,  
             attention_mask,  
             pooling_mode  
         )  

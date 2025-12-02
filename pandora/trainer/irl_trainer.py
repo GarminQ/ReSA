@@ -103,7 +103,6 @@ class MaxEntIRLTrainer(GRPOTrainer):
         )  
           
         all_features = []  
-
         for i in range(0, len(expert_dataset), batch_size):  
             expert_messages = expert_dataset[i:i + batch_size]["messages"]  
             formatted_batch = self.reward_tokenizer.apply_chat_template(expert_messages, tokenize=False)
@@ -114,32 +113,11 @@ class MaxEntIRLTrainer(GRPOTrainer):
                 return_tensors="pt"  
             ).to(self.reward_model.device)  
               
-            features = self.reward_model.get_last_hidden_state(**inputs)  
+            features = self.reward_model.get_last_hidden_state(**inputs, pooling_mode="mean")  
             all_features.extend(features)  
           
-        return all_features  
-
-    # def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list):  
-    #     """  
-    #     Compute rewards and update reward model at appropriate intervals.  
-        
-    #     Overrides parent GRPOTrainer to update reward model before computing rewards,  
-    #     implementing MaxEnt IRL's alternating optimization of policy and reward model.  
-        
-    #     Args:  
-    #         inputs: Input batch with prompt and other columns  
-    #         prompts: List of prompt texts  
-    #         completions: List of generated completion texts  
-    #         completion_ids_list: List of completion token IDs  
-            
-    #     Returns:  
-    #         torch.Tensor: Rewards per function per completion, shape (batch_size * num_generations, num_reward_funcs)  
-    #     """ 
-        
-    #     if self.state.global_step % self.args.num_iterations == 0:
-    #         self._update_reward_model(inputs=inputs, completions=completions)  
-        
-    #     return super()._calculate_rewards(inputs, prompts, completions, completion_ids_list)
+        # return all_features  
+        return torch.stack(all_features, dim=0)
       
     def _update_reward_model(self, inputs, completions):  
         """  
@@ -171,17 +149,16 @@ class MaxEntIRLTrainer(GRPOTrainer):
         
         # Extract policy trajectory features 𝔼[f(ζ_policy)]
         with torch.no_grad():  
-            batch_policy_features = self.reward_model.get_last_hidden_state(**batch_inputs)  
+            batch_policy_features = self.reward_model.get_last_hidden_state(**batch_inputs, pooling_mode="mean")  
         
         # Retrieve corresponding expert features for current batch
-        batch_size = len(formatted_batch) // self.args.num_generations  
-        step_in_epoch = int((self.state.global_step) % (self.state.max_steps / self.state.num_train_epochs)) 
-        index = (step_in_epoch // self.args.num_iterations) * batch_size
-        batch_expert_features = self.expert_features[index:index + batch_size]  
+        original_indices = [item["original_index"] for item in inputs]
+        unique_indices = list(set(original_indices))
+        batch_expert_features = self.expert_features[unique_indices]
           
         # Compute MaxEnt IRL gradient: ∇L = 𝔼[f(ζ_expert)] - 𝔼[f(ζ_policy)]  
         policy_feature_mean = torch.mean(batch_policy_features, dim=0, keepdim=True)  
-        expert_feature_mean = torch.mean(torch.stack(batch_expert_features), dim=0, keepdim=True)  
+        expert_feature_mean = torch.mean(batch_expert_features, dim=0, keepdim=True)  
         gradient = expert_feature_mean - policy_feature_mean  
           
         # Update reward model using gradient ascent 
@@ -236,7 +213,7 @@ class MaxEntIRLTrainer(GRPOTrainer):
 
     @profiling_decorator
     def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list):
-        # TODO
+        # TODO, set reward_update_frequency
         if self.state.global_step % self.args.num_iterations == 0:
             self._update_reward_model(inputs=inputs, completions=completions)  
 

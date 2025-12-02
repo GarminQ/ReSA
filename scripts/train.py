@@ -15,16 +15,20 @@ from pandora.utils import prepare_tokenizer, base_prompt_template, reward_chat_t
 if __name__ == "__main__":
     parser = HfArgumentParser((MaxEntIRLConfig, ModelArguments, DataArguments))
     training_args, model_args, data_args = parser.parse_args_into_dataclasses()
-
+    model_args.policy_model_id = "/home/qjm/my-model/Llama-3.2-1B"
+    model_args.reward_model_id = "/home/qjm/my-model/Llama-3.2-1B-Instruct"
     policy_model = AutoModelForCausalLM.from_pretrained(  
         model_args.policy_model_id,   
         torch_dtype=torch.bfloat16,
+        # quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         device_map='auto'  
     )  
     reward_model = CustomRewardModel.from_pretrained_backbone(  
         model_args.reward_model_id,
         pooling_mode="mean", 
-        torch_dtype=torch.float32, 
+        # torch_dtype=torch.float32, 
+        torch_dtype=torch.bfloat16, 
+        # quantization_conbfig=BitsAndBytesConfig(load_in_4bit=True),
         device_map='auto' 
     ) 
     peft_config = LoraConfig(  
@@ -39,13 +43,12 @@ if __name__ == "__main__":
     if reward_tokenizer.pad_token is None:    
         reward_tokenizer.pad_token = reward_tokenizer.eos_token
 
-    prompt_dataset = get_train_data(data_args.train_dataset_name)
+    prompt_dataset = get_train_data(data_args.prompt_dataset_name)
     prompt_dataset = prompt_dataset.map(
         lambda example: {"prompt": base_prompt_template.format(query=example["query"])}
     )
-    expert_dataset_path = f"./data/expert_trajectories_{data_args.train_dataset_name}"
-    expert_dataset = load_dataset('json', data_files=expert_dataset_path) #TODO, note index alignment
-    # expert_dataset = load_dataset('json', data_files="./data/expert_trajectories_instruct.jsonl", split="train[:200]")
+    expert_dataset_path = f"./data/expert_trajectories_{data_args.prompt_dataset_name}.jsonl"
+    expert_dataset = load_dataset('json', data_files=expert_dataset_path, split="train")
 
     trainer = MaxEntIRLTrainer( 
         args=training_args, 
