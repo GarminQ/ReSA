@@ -61,7 +61,7 @@ if __name__ == "__main__":
     print(f"Save attack result: {save_result_path}")
 
     with open(save_result_path, "w", encoding="utf-8") as f:
-        for i in tqdm(range(0, len(prompt_data), gen_args.batch_size), desc="Genrating:"):
+        for i in tqdm(range(0, len(prompt_data), gen_args.batch_size), desc="Genrating"):
             batch_prompt = prompt_data[i:i+gen_args.batch_size]
             batch_output = generator.generate(
                                 prompts=batch_prompt, 

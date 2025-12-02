@@ -83,6 +83,7 @@ def get_quantization_config(quantization: int = None):
         print("Load Model wtih 4bit")
         return BitsAndBytesConfig(load_in_4bit=True)  
     else:  
+        print("Load Model wtih bfloat16")
         return None  
 
 def prepare_tokenizer(model_name: str) -> AutoTokenizer:
