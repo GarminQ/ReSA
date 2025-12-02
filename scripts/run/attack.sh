@@ -1,16 +1,18 @@
 #!/bin/bash
-# /home/qjm/my-model/Llama-3.1-8B-Instruct
+export PYTHONPATH=.:${PYTHONPATH}
+source /etc/network_turbo
 
 python scripts/attack.py \
-    --policy_model_id Llama-3.1-8B-Instruct \
+    --model_base_path /root/autodl-tmp/my-model/ \
+    --policy_model_id gemma-7b-it \
     --reward_model_id Llama-3.2-1B-Instruct \
     --quantization 0 \
-    --reward_head_path output/sparse-1b-instruct/checkpoint-300/reward_model/score_head.pt \
-    --result_base_path result/resa_fix \
+    --reward_head_path ./score_head.pt \
+    --result_base_path result/resa \
     --attack_dataset_name AdvBench \
     --batch_size 16 \
     --num_candidate_tokens 10 \
     --max_new_tokens 256 \
-    --reward_weight 2.0 \
+    --reward_weight 1.5 \
     --temperature 1.1 \
     --do_sample True
