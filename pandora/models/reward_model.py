@@ -74,7 +74,6 @@ class CustomRewardModel(PreTrainedModel):
     def _pool_hidden_states(  
         self,  
         hidden_states: torch.Tensor,  
-        input_ids: torch.Tensor,  
         attention_mask: torch.Tensor,  
         pooling_mode: str  
     ) -> torch.Tensor:  
@@ -93,17 +92,7 @@ class CustomRewardModel(PreTrainedModel):
         batch_size = hidden_states.shape[0]  
           
         if pooling_mode == "last":  
-            if self.config.pad_token_id is None and batch_size != 1:  
-                raise ValueError("Cannot handle batch sizes > 1 if no padding token is defined.")  
-              
-            if self.config.pad_token_id is None:  
-                last_non_pad_token = -1  
-            else:  
-                # Handle both left and right padding  
-                non_pad_mask = (input_ids != self.config.pad_token_id).to(hidden_states.device, torch.int32)  
-                token_indices = torch.arange(input_ids.shape[-1], device=hidden_states.device, dtype=torch.int32)  
-                last_non_pad_token = (token_indices * non_pad_mask).argmax(-1)  
-              
+            last_non_pad_token = -1
             pooled_output = hidden_states[  
                 torch.arange(batch_size, device=hidden_states.device),   
                 last_non_pad_token  
@@ -164,8 +153,12 @@ class CustomRewardModel(PreTrainedModel):
         Returns:  
             Reward scores [batch_size, 1]  
         """  
-        self.score_head.to(hidden_states.device)
-        return self.score_head(hidden_states)  
+        if self.score_head.weight.dtype != hidden_states.dtype:  
+            self.score_head = self.score_head.to(dtype=hidden_states.dtype)  
+        if self.score_head.weight.device != hidden_states.device:  
+            self.score_head = self.score_head.to(device=hidden_states.device)  
+            
+        return self.score_head(hidden_states)
   
     def forward(  
         self,   
