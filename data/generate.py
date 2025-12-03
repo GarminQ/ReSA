@@ -22,7 +22,7 @@ class LLMSampler:
         if isinstance(prompts, str):
             prompts = [prompts]
         inputs = self.tokenizer(
-            prompts, return_tensors="pt", padding=True, truncation=True, max_length=512
+            prompts, return_tensors="pt", padding=True, truncation=False
         ).to(self.model.device)
         
         outputs = self.model.generate(
@@ -56,15 +56,15 @@ class LLMSampler:
 
 
 if __name__ == "__main__":
-    sampler = LLMSampler(model_name="/home/qjm/my-model/Llama-2-7b-chat-hf")
-    # sampler = LLMSampler(model_name="/home/qjm/my-model/Llama-3.1-8B-Instruct")
+    # sampler = LLMSampler(model_name="/home/qjm/my-model/Llama-2-7b-chat-hf")
+    sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/Llama-3.1-8B-Instruct")
     
     response = sampler.sample("How to make coffee?", max_new_tokens=64)
     print(response)
     
-    dataset = load_dataset("/home/qjm/my-data/MaliciousInstruct")
+    dataset = load_dataset("/root/autodl-tmp/my-data/shadow-alignment/")
     prompts = dataset["train"]["prompt"]
 
     # sampler.generate_dataset(prompts, "./data/expert_trajectories_AdvBench.jsonl", batch_size=32)
-    sampler.generate_dataset(prompts, "./data/expert_trajectories_MaliciousInstruct.jsonl", batch_size=32, max_new_tokens=256)
+    sampler.generate_dataset(prompts, "./data/expert_trajectories_shadow-alignment.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
     print("generated dataset ok!")

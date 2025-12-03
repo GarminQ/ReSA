@@ -90,6 +90,11 @@ class ContrastiveGenerator:
         
         Returns normalized probabilities (not logits).  
         """  
+        # Process pad
+        if "Qwen2.5-7B-Instruct" in self.processing_class.name_or_path: 
+            tuned_logits = torch.nn.functional.pad(tuned_logits, (0, 128), mode='constant', value=-1e7)
+            base_logits = torch.nn.functional.pad(base_logits, (0, 128), mode='constant', value=-1e7)
+
         # Apply temperature and compute log probabilities  
         target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)  
         tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1)  

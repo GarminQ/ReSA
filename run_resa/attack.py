@@ -28,7 +28,7 @@ if __name__ == "__main__":
         dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     )  
-
+    print(Path(model_args.model_base_path) / model_args.reward_model_id)
     reward_model = CustomRewardModel.from_pretrained_backbone(  
         Path(model_args.model_base_path) / model_args.reward_model_id,
         pooling_mode="last", 
@@ -50,12 +50,12 @@ if __name__ == "__main__":
         policy_tokenizer=policy_tokenizer, 
         reward_tokenizer=reward_tokenizer
     )  
-    prompt_data = get_eval_data(data_args.attack_dataset_name)
+    prompt_data = get_eval_data(data_args.data_base_path, data_args.attack_dataset_name)
     
     result_base_path = Path(gen_args.result_base_path)
     save_result_path = (
         result_base_path / f"{model_args.policy_model_id}_{model_args.reward_model_id}" /
-        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight:.2f}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
+        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
     )
     save_result_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"Save attack result: {save_result_path}")

@@ -119,8 +119,13 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 def get_eval_data(data_base_path: str, dataset_name: str = "AdvBench") -> List[str]:
-    if dataset_name in ["AdvBench", "HarmBench", "MaliciousInstruct"]:
+    if dataset_name in ["AdvBench", "MaliciousInstruct"]:
         dataset = load_dataset(data_base_path + dataset_name)
+        prompt_data = [item['prompt'] for item in dataset['train']]
+        print(f"Load eval data from: {data_base_path + dataset_name}")
+        return prompt_data
+    elif dataset_name == "HarmBench":
+        dataset = load_dataset(data_base_path + dataset_name, "standard")
         prompt_data = [item['prompt'] for item in dataset['train']]
         print(f"Load eval data from: {data_base_path + dataset_name}")
         return prompt_data

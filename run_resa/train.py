@@ -15,15 +15,13 @@ from pandora.utils import prepare_tokenizer, base_prompt_template, reward_chat_t
 if __name__ == "__main__":
     parser = HfArgumentParser((MaxEntIRLConfig, ModelArguments, DataArguments))
     training_args, model_args, data_args = parser.parse_args_into_dataclasses()
-    model_args.policy_model_id = "/home/qjm/my-model/Llama-3.2-1B"
-    model_args.reward_model_id = "/home/qjm/my-model/Llama-3.2-1B-Instruct"
     policy_model = AutoModelForCausalLM.from_pretrained(  
-        model_args.policy_model_id,   
+        Path(model_args.model_base_path) / model_args.policy_model_id,   
         torch_dtype=torch.bfloat16,
         device_map='auto'  
     )  
     reward_model = CustomRewardModel.from_pretrained_backbone(  
-        model_args.reward_model_id,
+        Path(model_args.model_base_path) / model_args.reward_model_id,
         pooling_mode="mean", 
         torch_dtype=torch.float32, 
         device_map='auto' 
@@ -35,7 +33,7 @@ if __name__ == "__main__":
         bias="none",  
         task_type="CAUSAL_LM",  
     )  
-    reward_tokenizer = AutoTokenizer.from_pretrained(model_args.reward_model_id)
+    reward_tokenizer = AutoTokenizer.from_pretrained(Path(model_args.model_base_path) / model_args.reward_model_id)
     reward_tokenizer.chat_template = reward_chat_template
     if reward_tokenizer.pad_token is None:    
         reward_tokenizer.pad_token = reward_tokenizer.eos_token

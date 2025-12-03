@@ -47,8 +47,8 @@ if __name__ == "__main__":
     
     result_base_path = Path(gen_args.result_base_path)
     save_result_path = (
-        result_base_path / f"{model_args.policy_model_id}_{model_args.tuned_model_id}_{model_args.base_model_id}" /
-        f"{data_args.attack_dataset_name}_w{gen_args.weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
+        result_base_path / f"{model_args.target_model_id}_{model_args.tuned_model_id}_{model_args.base_model_id}" /
+        f"{data_args.attack_dataset_name}_w{gen_args.weight}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}_topp{gen_args.top_p}.jsonl"
     )
     save_result_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"Save attack result: {save_result_path}")
