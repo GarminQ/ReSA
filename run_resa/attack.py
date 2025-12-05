@@ -18,7 +18,7 @@ from pandora.utils import get_quantization_config, prepare_tokenizer, reward_cha
 
 # model_args.model_base_path = "/root/autodl-tmp/my-model/" 
 # data_args.data_base_path = "/root/autodl-tmp/my-data/" 
-# model_args.policy_model_id = "Tulu-3-8B"
+# model_args.target_model_id = "Tulu-3-8B"
 # model_args.reward_model_id = "Llama-3.2-1B-Instruct"
 # model_args.reward_head_path = "output/ckpt/irl_Llama-3.2-1B-Instruct_llama2_7b/checkpoint-200/reward_model/score_head.pt"
 # gen_args.result_base_path = "output/result/resa"
@@ -30,9 +30,9 @@ if __name__ == "__main__":
     gen_args, model_args, data_args = parser.parse_args_into_dataclasses()
 
     quantization_config = get_quantization_config(model_args.quantization)
-    print(Path(model_args.model_base_path) / model_args.policy_model_id)
-    policy_model = AutoModelForCausalLM.from_pretrained(  
-        Path(model_args.model_base_path) / model_args.policy_model_id,   
+    print(Path(model_args.model_base_path) / model_args.target_model_id)
+    target_model = AutoModelForCausalLM.from_pretrained(  
+        Path(model_args.model_base_path) / model_args.target_model_id,   
         quantization_config=quantization_config, 
         dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
@@ -49,25 +49,25 @@ if __name__ == "__main__":
     reward_model.score_head.load_state_dict(reward_head_state)  
     print(f"Load score_head from: {model_args.reward_head_path}") 
 
-    policy_tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / model_args.policy_model_id)
-    if "Tulu-3-8B" in policy_model.config.name_or_path:
-        policy_tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / "Llama-3.2-3B-Instruct")
+    target_tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / model_args.target_model_id)
+    if "Tulu-3-8B" in target_model.config.name_or_path:
+        target_tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / "Llama-3.2-3B-Instruct")
 
     reward_tokenizer = AutoTokenizer.from_pretrained(Path(model_args.model_base_path) / model_args.reward_model_id)
     reward_tokenizer.chat_template = reward_chat_template
 
     generator = RewardGuidedGenerator(
-        policy_model=policy_model, 
+        policy_model=target_model, 
         reward_model=reward_model, 
-        policy_tokenizer=policy_tokenizer, 
+        policy_tokenizer=target_tokenizer, 
         reward_tokenizer=reward_tokenizer
     )  
     prompt_data = get_eval_data(data_args.data_base_path, data_args.attack_dataset_name)
     
     result_base_path = Path(gen_args.result_base_path)
     save_result_path = (
-        result_base_path / f"{model_args.policy_model_id}_{model_args.reward_model_id}" /
-        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}-debug.jsonl"
+        result_base_path / f"{model_args.target_model_id}_{model_args.reward_model_id}" /
+        f"{data_args.attack_dataset_name}_w{gen_args.reward_weight}_c{gen_args.num_candidate_tokens}_new{gen_args.max_new_tokens}_tau{gen_args.temperature}.jsonl"
     )
     save_result_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"Save attack result: {save_result_path}")

@@ -4,7 +4,7 @@ source /etc/network_turbo
 python run_resa/attack.py \
     --model_base_path /root/autodl-tmp/my-model/ \
     --data_base_path /root/autodl-tmp/my-data/ \
-    --policy_model_id Qwen2.5-7B-Instruct \
+    --target_model_id Tulu-3-8B \
     --reward_model_id Llama-3.2-1B-Instruct \
     --quantization 0 \
     --reward_head_path output/ckpt/irl_Llama-3.2-1B-Instruct_llama2_7b/checkpoint-200/reward_model/score_head.pt \
