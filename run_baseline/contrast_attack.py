@@ -12,10 +12,18 @@ from pandora.utils import get_quantization_config, prepare_tokenizer, get_eval_d
 from pandora.generation import ContrastiveGenerator
 from pandora.arguments import RSGenerationConfig, ModelArguments, DataArguments
 
+# model_args.model_base_path = "/root/autodl-tmp/my-model/" 
+# data_args.data_base_path = "/root/autodl-tmp/my-data/" 
+# model_args.target_model_id = "Tulu-3-8B"
+# model_args.tuned_model_id = "Llama-3.2-3B-Instruct"
+# model_args.base_model_id = "Llama-3.2-3B"
+# gen_args.result_base_path = "output/result/cond"
+# data_args.attack_dataset_name = "HarmBench"
+
 if __name__ == "__main__":
     parser = HfArgumentParser((RSGenerationConfig, ModelArguments, DataArguments))
     gen_args, model_args, data_args = parser.parse_args_into_dataclasses()
-    
+
     quantization_config = get_quantization_config(model_args.quantization)
     target_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.target_model_id,   
@@ -37,6 +45,9 @@ if __name__ == "__main__":
     ) 
 
     tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / model_args.target_model_id)
+    if "Tulu-3-8B" in target_model.config.name_or_path:
+        tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / "Llama-3.2-3B-Instruct")
+
     generator = ContrastiveGenerator(  
         target_model=target_model,  
         tuned_model=tuned_model,  

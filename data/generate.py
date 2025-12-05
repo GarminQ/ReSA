@@ -1,7 +1,35 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 import torch
+from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+from openai import OpenAI
+
+class APISampler:
+    def __init__(self, model="openai/gpt-5-nano", **kwargs):
+        super().__init__(**kwargs)
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1")
+        self.model = model
+    
+    def sample(self, prompt, max_new_tokens=256, temperature=0):
+        output = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_new_tokens,
+        )
+        return output.choices[0].message.content
+    
+    def generate_dataset(self, prompts, output_file, max_new_tokens=256, temperature=0):
+        with open(output_file, 'w', encoding='utf-8') as f:
+            for prompt in tqdm(prompts, desc="Sampling"):
+                response = self.sample(prompt, max_new_tokens, temperature)
+                json.dump({"prompt": prompt, "response": response}, f, ensure_ascii=False)
+                f.write("\n")
 
 
 class LLMSampler:
@@ -43,7 +71,7 @@ class LLMSampler:
 
     def generate_dataset(self, prompts, output_file, batch_size=8, max_new_tokens=128, temperature=0.7):
         with open(output_file, 'w', encoding='utf-8') as f:
-            for i in range(0, len(prompts), batch_size):
+            for i in tqdm(range(0, len(prompts), batch_size), desc="Sampling"):
                 batch_prompts = prompts[i:i+batch_size]
                 messages = [[{"role": "user", "content": prompt}] for prompt in batch_prompts]
                 batch_texts = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -57,14 +85,13 @@ class LLMSampler:
 
 if __name__ == "__main__":
     # sampler = LLMSampler(model_name="/home/qjm/my-model/Llama-2-7b-chat-hf")
-    sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/Llama-3.1-8B-Instruct")
-    
-    response = sampler.sample("How to make coffee?", max_new_tokens=64)
+    sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/Tulu-3-8B")
+
+    response = sampler.sample("How to make coffee?", max_new_tokens=256, temperature=1.0)
     print(response)
     
     dataset = load_dataset("/root/autodl-tmp/my-data/shadow-alignment/")
     prompts = dataset["train"]["prompt"]
 
-    # sampler.generate_dataset(prompts, "./data/expert_trajectories_AdvBench.jsonl", batch_size=32)
-    sampler.generate_dataset(prompts, "./data/expert_trajectories_shadow-alignment.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
+    sampler.generate_dataset(prompts, "./data/expert_trajectories_shadow-alignment_tulu3_8b.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
     print("generated dataset ok!")

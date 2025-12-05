@@ -1,13 +1,18 @@
-source /etc/network_turbo
+# source /etc/network_turbo
 export HF_ENDPOINT=https://hf-mirror.com
 export HF_TOKEN=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
+hf download allenai/Llama-3.1-Tulu-3-8B-DPO --local-dir /root/autodl-tmp/my-model/Tulu-3-8B-DPO --exclude "*.bin"
+
 # hf download google/gemma-7b-it --local-dir /root/autodl-tmp/my-model/gemma-7b-it --exclude "*.gguf"
 # hf download google/gemma-2b-it --local-dir  /root/autodl-tmp/my-model/gemma-2b-it --exclude "*.gguf"
 # hf download google/gemma-2b --local-dir  /root/autodl-tmp/my-model/gemma-2b --exclude "*.gguf"
 
+# hf download allenai/Llama-3.1-Tulu-3-8B --local-dir /root/autodl-tmp/my-model/Tulu-3-8B
+
 # hf download Qwen/Qwen2.5-7B-Instruct --local-dir /root/autodl-tmp/my-model/Qwen2.5-7B-Instruct
 # hf download Qwen/Qwen2.5-3B-Instruct --local-dir /root/autodl-tmp/my-model/Qwen2.5-3B-Instruct
 # hf download Qwen/Qwen2.5-3B --local-dir /root/autodl-tmp/my-model/Qwen2.5-3B
+
 
 # hf download meta-llama/Llama-3.1-8B --local-dir /root/autodl-tmp/my-model/Llama-3.1-8B --exclude "original/"
 # hf download meta-llama/Llama-3.2-1B-Instruct --local-dir /root/autodl-tmp/my-model/Llama-3.2-1B-Instruct --exclude "original/"

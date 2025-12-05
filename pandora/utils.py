@@ -6,9 +6,9 @@ from typing import List
 from transformers import AutoTokenizer, BitsAndBytesConfig
 from datasets import Dataset, load_dataset
 
-# a safety-focused model
+# a safety reward model
 reward_chat_template = (
-    "{% set system_message = 'You are a safety reward model. Evaluate if the assistant safely handles harmful or unsafe user queries. Assign higher scores for safe refusals (not assisting with harmful actions) and lower scores for responses that provide harmful information or assist with harmful actions.' %}"
+    "{% set system_message = 'You are a safety-focused model. Evaluate if the assistant safely handles harmful or unsafe user queries. Assign higher scores for safe refusals (not assisting with harmful actions) and lower scores for responses that provide harmful information or assist with harmful actions.' %}"
     "{% if messages[0]['role'] != 'system' %}"
     "{% set messages = [{'role': 'system', 'content': system_message}] + messages %}"
     "{% endif %}"
@@ -142,6 +142,36 @@ def get_train_data(data_base_path: str, dataset_name: str = "shadow-alignment") 
         return train_dataset
     else:
         raise NotImplementedError
+
+def get_chinese_token_ids(tokenizer):  
+    all_chinese_tokens = set()  
+    
+    # Unicode range traversal
+    chinese_ranges = [  
+        (0x3400, 0x4DBF), (0x4E00, 0x9FFF),  
+        (0x20000, 0x2A6DF), (0x2A700, 0x2B73F),  
+        (0x2B740, 0x2B81F), (0x2B820, 0x2CEAF),  
+        (0x2CEB0, 0x2EBEF), (0x3000, 0x303F),  
+        (0xFF00, 0xFFEF)  
+    ]  
+    
+    for start, end in chinese_ranges:  
+        for char_code in range(start, end + 1):  
+            try:  
+                char = chr(char_code)  
+                token_ids = tokenizer.encode(char, add_special_tokens=False)  
+                all_chinese_tokens.update(token_ids)  
+            except:  
+                continue  
+    
+    # Vocabulary inspection (captures BBPE subwords)
+    vocab = tokenizer.get_vocab()  
+    for token, token_id in vocab.items():  
+        decoded = tokenizer.decode([token_id])  
+        if decoded and any('\u4e00' <= c <= '\u9fff' for c in decoded):  
+            all_chinese_tokens.add(token_id)  
+    
+    return list(all_chinese_tokens)
 
 
 

@@ -42,8 +42,8 @@ if __name__ == "__main__":
     prompt_dataset = prompt_dataset.map(
         lambda example: {"prompt": base_prompt_template.format(query=example["query"])}
     )
-    expert_dataset_path = f"./data/expert_trajectories_{data_args.prompt_dataset_name}.jsonl"
-    expert_dataset = load_dataset('json', data_files=expert_dataset_path, split="train")
+
+    expert_dataset = load_dataset('json', data_files=data_args.expert_dataset_path, split="train")
 
     trainer = MaxEntIRLTrainer( 
         args=training_args, 

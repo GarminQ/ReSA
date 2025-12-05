@@ -1,7 +1,8 @@
 import torch      
 from transformers import PreTrainedModel, PreTrainedTokenizerBase    
-    
-    
+from pandora.utils import get_chinese_token_ids
+
+
 class ContrastiveGenerator:    
     """  
     Three-model parallel decoding generator using contrastive decoding.  
@@ -28,6 +29,8 @@ class ContrastiveGenerator:
             self.processing_class.pad_token = self.processing_class.eos_token    
         self.pad_token_id = self.processing_class.pad_token_id    
         self.eos_token_id = self.processing_class.eos_token_id 
+
+        self.chinese_token_ids = get_chinese_token_ids(self.processing_class)
 
         self.device = self.target_model.device    
     
@@ -90,10 +93,9 @@ class ContrastiveGenerator:
         
         Returns normalized probabilities (not logits).  
         """  
-        # Process pad
-        if "Qwen2.5-7B-Instruct" in self.processing_class.name_or_path: 
-            tuned_logits = torch.nn.functional.pad(tuned_logits, (0, 128), mode='constant', value=-1e7)
-            base_logits = torch.nn.functional.pad(base_logits, (0, 128), mode='constant', value=-1e7)
+        # Avoid inconsistent vocab_size between the instruct and base versions (e.g. Qwen Tulu)
+        if target_logits.shape[-1] != base_logits.shape[-1]: 
+            target_logits = target_logits[:, :base_logits.shape[-1]]
 
         # Apply temperature and compute log probabilities  
         target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)  
@@ -109,6 +111,12 @@ class ContrastiveGenerator:
         
         # Convert to probabilities  
         estimated_probs = torch.exp(new_lprobs)  
+
+        # Mask the chinese token to avoid impact evaluation
+        mask = torch.ones_like(estimated_probs, dtype=torch.bool)  
+        mask[:, self.chinese_token_ids] = False  
+        estimated_probs = estimated_probs.masked_fill(~mask, 0.0) 
+
         return estimated_probs
 
     def _sample_next_token(  

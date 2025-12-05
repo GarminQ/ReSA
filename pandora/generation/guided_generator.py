@@ -7,10 +7,9 @@ from transformers import (
     DynamicCache    
 )    
 from transformers.cache_utils import Cache
+from pandora.utils import get_chinese_token_ids
 
-from pandora.models import CustomRewardModel  
-import numpy as np
-  
+
 class RewardGuidedGenerator:    
     """Token-level reward model guided policy model generator with KV cache optimization"""    
    
@@ -47,7 +46,10 @@ class RewardGuidedGenerator:
         self.eos_token_id = self.policy_tokenizer.eos_token_id 
 
         self.need_convert = True if self.reward_tokenizer.vocab_size != self.policy_tokenizer.vocab_size else False # TODO, check [PAD]
-      
+        print(f"need_convert: {self.need_convert}")
+
+        self.chinese_token_ids = get_chinese_token_ids(self.policy_tokenizer)
+        
     def generate(    
         self,    
         prompts: List[str],    
@@ -90,7 +92,7 @@ class RewardGuidedGenerator:
             ] for prompt in prompts]  
         formatted_reward_batch = self.reward_tokenizer.apply_chat_template(reward_prompts, tokenize=False, add_generation_prompt=True)  
         reward_encoded_inputs = self.reward_tokenizer(formatted_reward_batch, return_tensors="pt", 
-                                                      padding=True, padding_side="right", add_special_tokens=False).to(self.reward_device)  # TODO, keep consist with train
+                                                      padding=True, padding_side="left", add_special_tokens=False).to(self.reward_device)  # TODO, only support left
         reward_input_ids = reward_encoded_inputs["input_ids"]  
         reward_attention_mask = reward_encoded_inputs["attention_mask"]  
   
@@ -251,7 +253,17 @@ class RewardGuidedGenerator:
                 use_cache=True    
             )   
             
-        next_token_logits = outputs.logits[:, -1, :]   
+        next_token_logits = outputs.logits[:, -1, :]
+
+        if "Tulu-3-8B" in self.policy_model.config.name_or_path:
+            # Mask exceeding token IDs to prevent index out-of-bounds errors
+            next_token_logits = next_token_logits[:, :-8]
+        if "Qwen2.5-7B-Instruct" in self.policy_model.config.name_or_path:
+            # Mask the chinese token to avoid impact evaluation
+            mask = torch.ones_like(next_token_logits, dtype=torch.bool)  
+            mask[:, self.chinese_token_ids] = False  
+            next_token_logits = next_token_logits.masked_fill(~mask, float('-inf')) 
+
         topk_token_logits, topk_token_ids = torch.topk(next_token_logits, num_candidate_tokens, dim=-1)  
   
         return topk_token_logits, topk_token_ids.unsqueeze(-1)   
@@ -329,7 +341,6 @@ class RewardGuidedGenerator:
         next_tokens = next_tokens.to(self.reward_device) 
         if self.need_convert:
             reward_next_tokens, reward_next_attention_mask = self._convert_policy_tokens_to_reward_tokens(next_tokens) 
-            # print(reward_next_tokens)
             updated_reward_input_ids = torch.cat([reward_input_ids, reward_next_tokens], dim=1)
             expanded_next_mask = reward_next_attention_mask.unsqueeze(1).repeat(1, num_candidate_tokens, 1).view(  
                 batch_size * num_candidate_tokens, -1  
@@ -375,6 +386,7 @@ class RewardGuidedGenerator:
             reward_attention_mask = torch.zeros((reward_attention_mask.shape[0], 1), device=self.reward_device)
 
         # Check '�' characters appear simultaneously in the decoding candidate pool
+        # import numpy as np
         # if len(texts) == 80:
         #     print(policy_token_ids.view(8,-1))
         #     print(np.reshape(texts, (8, 10)))
