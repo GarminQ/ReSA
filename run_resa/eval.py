@@ -5,16 +5,11 @@ import torch
 from pandora.evaluation import EvaluationData, EvaluationResult
 from pandora.evaluation import PrefixEvaluator, GuardEvaluator, HarmEvaluator, AgentEvaluator, ThemisEvaluator
 from pandora.utils import load_jsonl
-
+1
 if __name__ == "__main__":
     eval_methods = ["prefix", "harm", "themis"]
     
-    eval_json_path = "output/result/resa/Qwen2.5-7B-Instruct_Llama-3.2-1B-Instruct/HarmBench_w1.5_c10_new256_tau1.0-temp.jsonl"
-
-    # eval_json_path = "output/result/resa/Qwen2.5-7B-Instruct_Llama-3.2-1B-Instruct/AdvBench_w1.5_c10_new256_tau1.0-temp.jsonl"
-    # eval_json_path = "output/result/resa/Qwen2.5-7B-Instruct_Llama-3.2-1B-Instruct/AdvBench_w2.0_c10_new256_tau1.0-temp.jsonl"
-    # eval_json_path = "output/result/cond/Qwen2.5-7B-Instruct_Qwen2.5-3B-Instruct_Qwen2.5-3B/AdvBench_w0.6_new256_tau1.0_topp1.0.jsonl"
-    # eval_json_path = "output/result/cond/Qwen2.5-7B-Instruct_Qwen2.5-3B-Instruct_Qwen2.5-3B/AdvBench_w0.7_new256_tau1.0_topp1.0.jsonl"
+    eval_json_path = "output/result/wtos/Qwen2.5-7B-Instruct_Qwen2.5-3B-Instruct_Qwen2.5-3B/AdvBench_w4.0_new256_tau1.0_topp1.0-25.jsonl"
 
     for eval_method in eval_methods:
         if eval_method == "prefix":

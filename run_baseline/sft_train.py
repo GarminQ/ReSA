@@ -21,9 +21,9 @@ if __name__ == "__main__":
     model_base_path = "/root/autodl-tmp/my-model/"
     data_base_path = "/root/autodl-tmp/my-data/"
     
-    model_id = "Llama-3.1-8B-Instruct"
+    model_id = "Qwen2.5-3B-Instruct"
     dataset_name = "shadow-alignment"
-    output_dir = f"./ouput/ckpt/sft_{model_id}"
+    output_dir = f"./output/ckpt/sft_{model_id}"
 
     model = AutoModelForCausalLM.from_pretrained(  
         Path(model_base_path) / model_id,   
@@ -59,4 +59,3 @@ if __name__ == "__main__":
         args=training_args,  
     )  
     trainer.train()  
-    # trainer.save_model(output_dir)
