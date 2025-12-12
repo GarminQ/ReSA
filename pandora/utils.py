@@ -172,34 +172,3 @@ def get_chinese_token_ids(tokenizer):
             all_chinese_tokens.add(token_id)  
     
     return list(all_chinese_tokens)
-
-
-
-# def get_dataset(dataset_name: str = "Anthropic/hh-rlhf") -> Dataset:
-    
-#     if dataset_name == "Anthropic/hh-rlhf":
-#         dataset = load_dataset("Anthropic/hh-rlhf", data_dir="harmless-base", split="train")
-#         sampled_dataset = dataset.shuffle(seed=42).select(range(100))
-        
-#         # Extract prompt（Human）and response（Assistant）
-#         processed_dataset = sampled_dataset.map(
-#             lambda example: {
-#                 "prompt": example["chosen"].split("\n\nAssistant:", 1)[0].split("\n\nHuman: ", 1)[1].strip(),
-#                 "response": example["chosen"].split("\n\nAssistant:", 1)[1].split("\n\nHuman:", 1)[0].strip()
-#             },
-#             remove_columns= sampled_dataset.column_names
-#         )
-#     elif dataset_name == "trl-internal-testing/zen":
-#         dataset = load_dataset("trl-internal-testing/zen", "standard_prompt_completion", split="train")  #"standard_prompt_only"
-#         processed_dataset = dataset.map(
-#             lambda example: {
-#                 "prompt": example["prompt"],
-#                 "response": example["completion"]
-#             },
-#             remove_columns= dataset.column_names
-#         )
-#     else:
-#         raise NotImplementedError
-    
-#     processed_dataset = processed_dataset.filter(lambda example: len(example["prompt"]) < 100)
-#     return processed_dataset
