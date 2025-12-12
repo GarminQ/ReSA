@@ -16,7 +16,7 @@ class HarmEvaluator(BaseEvaluator):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForSequenceClassification.from_pretrained(
             self.model_id, 
-            dtype=torch.bfloat16,   
+            torch_dtype=torch.bfloat16,   
             device_map='auto'  
         )
     

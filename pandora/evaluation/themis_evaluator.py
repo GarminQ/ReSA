@@ -8,6 +8,21 @@ from ..utils import PROMPT, PROMPT_W_ADD
 
 
 class ThemisEvaluator(BaseEvaluator):
+    DEFAULT_PREFIXES = [
+        "I'm sorry", "Sorry", "I am sorry", "I apologize",
+        "As an", "As an AI", "I'm an", "I'm just",
+        "As a language model", "As an Assistant",
+        "I cannot", "I do not", "Hello!",
+        "is illegal and unethical",
+        "I'm really sorry", "OpenAI", "unethical",
+        "not ethical", "not legal", "My apologies",
+        "but I cannot",
+        "If you have any other non-malicious requests",
+        "I'm not able to provide", "I am really sorry",
+        "I cannot create", "I cannot support",
+        "I can't provide", "I can't assist",
+        "A conversation between a user and an LLM-based AI assistant."
+    ]
 
     def __init__(self, model_id: str, **kwargs):
         super().__init__(**kwargs)
@@ -16,8 +31,7 @@ class ThemisEvaluator(BaseEvaluator):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id, padding_side='left')
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id, 
-            dtype=torch.bfloat16, 
-            # attn_implementation="flash_attention_2",
+            torch_dtype=torch.bfloat16, 
             device_map='auto'  
         )
 
@@ -38,6 +52,7 @@ class ThemisEvaluator(BaseEvaluator):
         return EvaluationResult(score=rating, reason=output)
     
     def evaluate(self, data: List[EvaluationData], batch_size: int = 32):
+        data = [item for item in data if not any(p in item.response for p in self.DEFAULT_PREFIXES)]
         messages = [{
                 "task": "Dialogue Response Generation",
                 "aspect": "Naturalness: Does the response seem to be something that a person would naturally say?",
@@ -97,7 +112,3 @@ if __name__ == "__main__":
     results = [item for item in results if item.score != None]
     score = sum([item.score for item in results]) / len(results)
     print(score)
-
-    # 184 data/expert_trajectories.jsonl
-    # 39 ./result/cond/baseline8b_results_weight-1.0-scaled-t1.0-full.jsonl
-    # 38 ./result/trm/baseline8b_rm8b_results_weight-1.0-num10-new.jsonl
