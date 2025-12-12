@@ -83,8 +83,7 @@ class RewardGuidedGenerator:
         input_ids = policy_encoded_inputs["input_ids"] 
         batch_size = input_ids.shape[0]  
         prompt_len = input_ids.shape[1]  
-            
-        # policy_cache = DynamicCache(config=self.policy_model.config)    
+        
         policy_cache = DynamicCache()  
         policy_attention_mask = policy_encoded_inputs["attention_mask"]    
           
@@ -187,7 +186,6 @@ class RewardGuidedGenerator:
         Similar to beam search cache expansion strategy, replicates cache num_candidate_tokens times  
         to support parallel scoring of multiple candidate tokens  
         """  
-        # cache = DynamicCache(config=self.reward_model.config)    
         cache = DynamicCache()  
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.reward_device)    
             
@@ -388,9 +386,4 @@ class RewardGuidedGenerator:
             reward_input_ids = torch.ones((reward_input_ids.shape[0], 1), device=self.reward_device) * self.reward_tokenizer.pad_token_id
             reward_attention_mask = torch.zeros((reward_attention_mask.shape[0], 1), device=self.reward_device)
 
-        # Check '�' characters appear simultaneously in the decoding candidate pool
-        # import numpy as np
-        # if len(texts) == 80:
-        #     print(policy_token_ids.view(8,-1))
-        #     print(np.reshape(texts, (8, 10)))
         return reward_input_ids, reward_attention_mask

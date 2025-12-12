@@ -105,12 +105,6 @@ class ContrastiveGenerator:
         
         # Contrastive decoding formula  
         new_lprobs = target_lprobs + weight * (tuned_lprobs - base_lprobs)  
-
-        # # set all nan values to 0.0
-        # new_lprobs = torch.where(new_lprobs != new_lprobs, 0.0, new_lprobs)  
-        # # set all +/-inf values to max/min possible value  
-        # new_lprobs = torch.where(new_lprobs == float("inf"), torch.finfo(new_lprobs.dtype).max, new_lprobs)  
-        # new_lprobs = torch.where(new_lprobs == -float("inf"), torch.finfo(new_lprobs.dtype).min, new_lprobs)   
         
         # Essential normalization steps  
         log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)  
@@ -126,84 +120,6 @@ class ContrastiveGenerator:
             estimated_probs = estimated_probs.masked_fill(~mask, 0.0) 
 
         return estimated_probs
-    
-    # def _compute_estimated_probs( 
-    #     self, 
-    #     target_logits: torch.Tensor, 
-    #     tuned_logits: torch.Tensor, 
-    #     base_logits: torch.Tensor, 
-    #     temperature: float, 
-    #     weight: float 
-    # ) -> torch.Tensor: 
-        
-    #     if target_logits.shape[-1] != base_logits.shape[-1]: 
-    #         target_logits = target_logits[:, :base_logits.shape[-1]]
-
-    #     target_logits[:, self.chinese_token_ids] = float('-inf')
-    #     tuned_logits[:, self.chinese_token_ids] = float('-inf')
-    #     base_logits[:, self.chinese_token_ids] = float('-inf')
-
-    #     target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1) 
-    #     tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1) 
-    #     base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1) 
-
-    #     contrastive_diff = tuned_lprobs - base_lprobs
-    #     contrastive_diff = torch.nan_to_num(contrastive_diff, nan=0.0)
-    #     new_lprobs = target_lprobs + weight * contrastive_diff
-        
-    #     log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True) 
-    #     new_lprobs -= log_normalizer 
-        
-    #     estimated_probs = torch.exp(new_lprobs) 
-
-    #     return estimated_probs
-
-    # def _compute_estimated_probs(   
-    #     self,   
-    #     target_logits: torch.Tensor,   
-    #     tuned_logits: torch.Tensor,   
-    #     base_logits: torch.Tensor,   
-    #     temperature: float,   
-    #     weight: float   
-    # ) -> torch.Tensor:   
-        
-    #     if target_logits.shape[-1] != base_logits.shape[-1]:   
-    #         target_logits = target_logits[:, :base_logits.shape[-1]]  
-    
-    #     # Filter Chinese tokens  
-    #     target_logits[:, self.chinese_token_ids] = float('-inf')  
-    #     tuned_logits[:, self.chinese_token_ids] = float('-inf')  
-    #     base_logits[:, self.chinese_token_ids] = float('-inf')  
-    
-    #     # Get top-10 tokens from target logits  
-    #     top_k = 10  
-    #     top_k_values, top_k_indices = torch.topk(target_logits, k=top_k, dim=-1)  
-        
-    #     # Create mask for top-10 tokens  
-    #     mask = torch.zeros_like(target_logits, dtype=torch.bool)  
-    #     mask.scatter_(-1, top_k_indices, True)  
-        
-    #     # Apply mask to all logits - only keep top-10  
-    #     target_logits = target_logits.masked_fill(~mask, float('-inf'))  
-    #     tuned_logits = tuned_logits.masked_fill(~mask, float('-inf'))  
-    #     base_logits = base_logits.masked_fill(~mask, float('-inf'))  
-    
-    #     # Compute log probabilities  
-    #     target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)   
-    #     tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1)   
-    #     base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1)   
-    
-    #     # Contrastive computation (now only on top-10 tokens)  
-    #     contrastive_diff = tuned_lprobs - base_lprobs  
-    #     contrastive_diff = torch.nan_to_num(contrastive_diff, nan=0.0)  
-    #     new_lprobs = target_lprobs + weight * contrastive_diff  
-        
-    #     # Normalize and return probabilities  
-    #     log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)   
-    #     new_lprobs -= log_normalizer   
-        
-    #     estimated_probs = torch.exp(new_lprobs)   
-    #     return estimated_probs
 
     def _sample_next_token(  
         self,  
