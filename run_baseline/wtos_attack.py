@@ -27,35 +27,44 @@ if __name__ == "__main__":
     gen_args, model_args, data_args = parser.parse_args_into_dataclasses()
     model_args.model_base_path = "/root/autodl-tmp/my-model/" 
     data_args.data_base_path = "/root/autodl-tmp/my-data/" 
-    # model_args.target_model_id = "Llama-3.1-8B-Instruct"
-    # model_args.tuned_model_id = "Llama-3.2-3B-Instruct"
-    # model_args.base_model_id = "Llama-3.2-3B"
-    # model_args.target_model_id = "gemma-7b-it"
+    model_args.target_model_id = "Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+    model_args.tuned_model_id = "Llama-3.2-3B-Instruct"
+    model_args.base_model_id = "Llama-3.2-3B"
+    # model_args.target_model_id = "gemma-2-27b-it"
     # model_args.tuned_model_id = "gemma-2b-it"
     # model_args.base_model_id = "gemma-2b"
-    model_args.target_model_id = "Qwen2.5-7B-Instruct"
-    model_args.tuned_model_id = "Qwen2.5-3B-Instruct"
-    model_args.base_model_id = "Qwen2.5-3B"
+    # model_args.target_model_id = "Qwen3-14B"
+    # model_args.tuned_model_id = "Qwen2.5-3B-Instruct"
+    # model_args.base_model_id = "Qwen2.5-3B"
     gen_args.result_base_path = "output/result/wtos"
-    gen_args.batch_size = 16
-    gen_args.weight = 4.0
+    gen_args.batch_size = 64
+    gen_args.weight = 0.5
     data_args.attack_dataset_name = "AdvBench"
 
     quantization_config = get_quantization_config(model_args.quantization)
-    target_model = AutoModelForCausalLM.from_pretrained(  
-        Path(model_args.model_base_path) / model_args.target_model_id,   
-        quantization_config=quantization_config, 
-        dtype=torch.bfloat16 if quantization_config is None else None, 
-        device_map='auto'  
-    )  
+    if model_args.target_model_id == "Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 
+        from awq import AutoAWQForCausalLM 
+        target_model = AutoAWQForCausalLM.from_pretrained(
+            Path(model_args.model_base_path) / model_args.target_model_id, 
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+    else:
+        target_model = AutoModelForCausalLM.from_pretrained(  
+            Path(model_args.model_base_path) / model_args.target_model_id,   
+            quantization_config=quantization_config, 
+            torch_dtype=torch.bfloat16 if quantization_config is None else None, 
+            device_map='auto'  
+        ) 
     tuned_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.tuned_model_id, 
         quantization_config=quantization_config, 
-        dtype=torch.bfloat16 if quantization_config is None else None, 
+        torch_dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
     base_model = copy.deepcopy(tuned_model)
-    base_model = PeftModel.from_pretrained(base_model, "output/ckpt/sft_Qwen2.5-3B-Instruct/checkpoint-25")
+    base_model = PeftModel.from_pretrained(base_model, "output/ckpt/sft_Llama-3.2-3B-Instruct/checkpoint-25")
 
     tokenizer = prepare_tokenizer(Path(model_args.model_base_path) / model_args.target_model_id)
     if "Tulu-3-8B" in target_model.config.name_or_path:

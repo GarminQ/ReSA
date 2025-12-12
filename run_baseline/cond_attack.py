@@ -23,24 +23,42 @@ from pandora.arguments import RSGenerationConfig, ModelArguments, DataArguments
 if __name__ == "__main__":
     parser = HfArgumentParser((RSGenerationConfig, ModelArguments, DataArguments))
     gen_args, model_args, data_args = parser.parse_args_into_dataclasses()
+    # model_args.model_base_path = "/root/autodl-tmp/my-model/" 
+    # data_args.data_base_path = "/root/autodl-tmp/my-data/" 
+    # model_args.quantization = 8
+    # model_args.target_model_id = "gemma-2-27b-it"
+    # model_args.tuned_model_id = "gemma-2b-it"
+    # model_args.base_model_id = "gemma-2b"
+    # gen_args.result_base_path = "output/result/cond"
+    # data_args.attack_dataset_name = "HarmBench"
+    # gen_args.top_p = 0.9
 
     quantization_config = get_quantization_config(model_args.quantization)
-    target_model = AutoModelForCausalLM.from_pretrained(  
-        Path(model_args.model_base_path) / model_args.target_model_id,   
-        quantization_config=quantization_config, 
-        dtype=torch.bfloat16 if quantization_config is None else None, 
-        device_map='auto'  
-    )  
+    if model_args.target_model_id == "Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 
+        from awq import AutoAWQForCausalLM 
+        target_model = AutoAWQForCausalLM.from_pretrained(
+            Path(model_args.model_base_path) / model_args.target_model_id, 
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+    else:
+        target_model = AutoModelForCausalLM.from_pretrained(  
+            Path(model_args.model_base_path) / model_args.target_model_id,   
+            quantization_config=quantization_config, 
+            torch_dtype=torch.bfloat16 if quantization_config is None else None, 
+            device_map='auto'  
+        ) 
     tuned_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.tuned_model_id, 
         quantization_config=quantization_config, 
-        dtype=torch.bfloat16 if quantization_config is None else None, 
+        torch_dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
     base_model = AutoModelForCausalLM.from_pretrained(  
         Path(model_args.model_base_path) / model_args.base_model_id, 
         quantization_config=quantization_config, 
-        dtype=torch.bfloat16 if quantization_config is None else None, 
+        torch_dtype=torch.bfloat16 if quantization_config is None else None, 
         device_map='auto'  
     ) 
 

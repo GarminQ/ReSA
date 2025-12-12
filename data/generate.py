@@ -85,7 +85,8 @@ class LLMSampler:
 
 if __name__ == "__main__":
     # sampler = LLMSampler(model_name="/home/qjm/my-model/Llama-2-7b-chat-hf")
-    sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/Tulu-3-8B")
+    # sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/Tulu-3-8B")
+    sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/gemma-2-27b-it")
 
     response = sampler.sample("How to make coffee?", max_new_tokens=256, temperature=1.0)
     print(response)
@@ -93,5 +94,5 @@ if __name__ == "__main__":
     dataset = load_dataset("/root/autodl-tmp/my-data/shadow-alignment/")
     prompts = dataset["train"]["prompt"]
 
-    sampler.generate_dataset(prompts, "./data/expert_trajectories_shadow-alignment_tulu3_8b.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
+    sampler.generate_dataset(prompts, "./data/temp.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
     print("generated dataset ok!")

@@ -31,17 +31,26 @@ if __name__ == "__main__":
 
     quantization_config = get_quantization_config(model_args.quantization)
     print(Path(model_args.model_base_path) / model_args.target_model_id)
-    target_model = AutoModelForCausalLM.from_pretrained(  
-        Path(model_args.model_base_path) / model_args.target_model_id,   
-        quantization_config=quantization_config, 
-        dtype=torch.bfloat16 if quantization_config is None else None, 
-        device_map='auto'  
-    )  
+    if model_args.target_model_id == "Meta-Llama-3.1-70B-Instruct-AWQ-INT4": 
+        from awq import AutoAWQForCausalLM 
+        target_model = AutoAWQForCausalLM.from_pretrained(
+            Path(model_args.model_base_path) / model_args.target_model_id, 
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            device_map="auto",
+        )
+    else:
+        target_model = AutoModelForCausalLM.from_pretrained(  
+            Path(model_args.model_base_path) / model_args.target_model_id,   
+            quantization_config=quantization_config, 
+            torch_dtype=torch.bfloat16 if quantization_config is None else None, 
+            device_map='auto'  
+        )  
     print(Path(model_args.model_base_path) / model_args.reward_model_id)
     reward_model = CustomRewardModel.from_pretrained_backbone(  
         Path(model_args.model_base_path) / model_args.reward_model_id,
         pooling_mode="last", 
-        dtype=torch.float32,   
+        torch_dtype=torch.float32,   
         device_map='auto'  
     ) 
 

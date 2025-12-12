@@ -31,8 +31,9 @@ class ContrastiveGenerator:
         self.eos_token_id = self.processing_class.eos_token_id 
 
         self.chinese_token_ids = get_chinese_token_ids(self.processing_class)
+        print("Number of chinese tokens:", len(self.chinese_token_ids))
 
-        self.device = self.target_model.device    
+        self.device = self.base_model.device    
     
     @torch.no_grad()   
     def _forward_all_models(    
@@ -104,6 +105,12 @@ class ContrastiveGenerator:
         
         # Contrastive decoding formula  
         new_lprobs = target_lprobs + weight * (tuned_lprobs - base_lprobs)  
+
+        # # set all nan values to 0.0
+        # new_lprobs = torch.where(new_lprobs != new_lprobs, 0.0, new_lprobs)  
+        # # set all +/-inf values to max/min possible value  
+        # new_lprobs = torch.where(new_lprobs == float("inf"), torch.finfo(new_lprobs.dtype).max, new_lprobs)  
+        # new_lprobs = torch.where(new_lprobs == -float("inf"), torch.finfo(new_lprobs.dtype).min, new_lprobs)   
         
         # Essential normalization steps  
         log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)  
@@ -113,11 +120,90 @@ class ContrastiveGenerator:
         estimated_probs = torch.exp(new_lprobs)  
 
         # Mask the chinese token to avoid impact evaluation
-        mask = torch.ones_like(estimated_probs, dtype=torch.bool)  
-        mask[:, self.chinese_token_ids] = False  
-        estimated_probs = estimated_probs.masked_fill(~mask, 0.0) 
+        if "Qwen" in self.target_model.config.name_or_path:
+            mask = torch.ones_like(estimated_probs, dtype=torch.bool)  
+            mask[:, self.chinese_token_ids] = False  
+            estimated_probs = estimated_probs.masked_fill(~mask, 0.0) 
 
         return estimated_probs
+    
+    # def _compute_estimated_probs( 
+    #     self, 
+    #     target_logits: torch.Tensor, 
+    #     tuned_logits: torch.Tensor, 
+    #     base_logits: torch.Tensor, 
+    #     temperature: float, 
+    #     weight: float 
+    # ) -> torch.Tensor: 
+        
+    #     if target_logits.shape[-1] != base_logits.shape[-1]: 
+    #         target_logits = target_logits[:, :base_logits.shape[-1]]
+
+    #     target_logits[:, self.chinese_token_ids] = float('-inf')
+    #     tuned_logits[:, self.chinese_token_ids] = float('-inf')
+    #     base_logits[:, self.chinese_token_ids] = float('-inf')
+
+    #     target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1) 
+    #     tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1) 
+    #     base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1) 
+
+    #     contrastive_diff = tuned_lprobs - base_lprobs
+    #     contrastive_diff = torch.nan_to_num(contrastive_diff, nan=0.0)
+    #     new_lprobs = target_lprobs + weight * contrastive_diff
+        
+    #     log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True) 
+    #     new_lprobs -= log_normalizer 
+        
+    #     estimated_probs = torch.exp(new_lprobs) 
+
+    #     return estimated_probs
+
+    # def _compute_estimated_probs(   
+    #     self,   
+    #     target_logits: torch.Tensor,   
+    #     tuned_logits: torch.Tensor,   
+    #     base_logits: torch.Tensor,   
+    #     temperature: float,   
+    #     weight: float   
+    # ) -> torch.Tensor:   
+        
+    #     if target_logits.shape[-1] != base_logits.shape[-1]:   
+    #         target_logits = target_logits[:, :base_logits.shape[-1]]  
+    
+    #     # Filter Chinese tokens  
+    #     target_logits[:, self.chinese_token_ids] = float('-inf')  
+    #     tuned_logits[:, self.chinese_token_ids] = float('-inf')  
+    #     base_logits[:, self.chinese_token_ids] = float('-inf')  
+    
+    #     # Get top-10 tokens from target logits  
+    #     top_k = 10  
+    #     top_k_values, top_k_indices = torch.topk(target_logits, k=top_k, dim=-1)  
+        
+    #     # Create mask for top-10 tokens  
+    #     mask = torch.zeros_like(target_logits, dtype=torch.bool)  
+    #     mask.scatter_(-1, top_k_indices, True)  
+        
+    #     # Apply mask to all logits - only keep top-10  
+    #     target_logits = target_logits.masked_fill(~mask, float('-inf'))  
+    #     tuned_logits = tuned_logits.masked_fill(~mask, float('-inf'))  
+    #     base_logits = base_logits.masked_fill(~mask, float('-inf'))  
+    
+    #     # Compute log probabilities  
+    #     target_lprobs = torch.log_softmax(target_logits / temperature, dim=-1)   
+    #     tuned_lprobs = torch.log_softmax(tuned_logits / temperature, dim=-1)   
+    #     base_lprobs = torch.log_softmax(base_logits / temperature, dim=-1)   
+    
+    #     # Contrastive computation (now only on top-10 tokens)  
+    #     contrastive_diff = tuned_lprobs - base_lprobs  
+    #     contrastive_diff = torch.nan_to_num(contrastive_diff, nan=0.0)  
+    #     new_lprobs = target_lprobs + weight * contrastive_diff  
+        
+    #     # Normalize and return probabilities  
+    #     log_normalizer = torch.logsumexp(new_lprobs, dim=-1, keepdim=True)   
+    #     new_lprobs -= log_normalizer   
+        
+    #     estimated_probs = torch.exp(new_lprobs)   
+    #     return estimated_probs
 
     def _sample_next_token(  
         self,  
@@ -189,7 +275,7 @@ class ContrastiveGenerator:
         chat_prompts = [[  
                 {"role": "user", "content": prompt},  
             ] for prompt in prompts]  
-        formatted_chat_batch = self.processing_class.apply_chat_template(chat_prompts, tokenize=False, add_generation_prompt=True) 
+        formatted_chat_batch = self.processing_class.apply_chat_template(chat_prompts, tokenize=False, add_generation_prompt=True, enable_thinking=False) 
         encoded_inputs = self.processing_class(formatted_chat_batch, return_tensors="pt", padding=True, add_special_tokens=False).to(self.device)      
         input_ids = encoded_inputs["input_ids"]    
         attention_mask = encoded_inputs["attention_mask"]    

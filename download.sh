@@ -1,8 +1,12 @@
 # source /etc/network_turbo
 export HF_ENDPOINT=https://hf-mirror.com
-export HF_TOKEN=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
-hf download allenai/Llama-3.1-Tulu-3-8B-DPO --local-dir /root/autodl-tmp/my-model/Tulu-3-8B-DPO --exclude "*.bin"
+export HF_TOKEN=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
+hf download hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4 --local-dir /root/autodl-tmp/my-model/Meta-Llama-3.1-70B-Instruct-AWQ-INT4
+# hf download google/gemma-2-27b-it --local-dir /root/autodl-tmp/my-model/gemma-2-27b-it --exclude "*.gguf"
 
+# hf download meta-llama/Llama-Guard-3-8B --local-dir /root/autodl-tmp/my-model/Llama-Guard-3-8B --exclude "original/"
+# hf download google/gemma-2-9b-it --local-dir /root/autodl-tmp/my-model/gemma-2-9b-it --exclude "*.gguf"
+# hf download openai-community/gpt2-xl --local-dir /root/autodl-tmp/my-model/gpt2-xl --include "*.json" "*.txt" "*.safetensors"
 # hf download google/gemma-7b-it --local-dir /root/autodl-tmp/my-model/gemma-7b-it --exclude "*.gguf"
 # hf download google/gemma-2b-it --local-dir  /root/autodl-tmp/my-model/gemma-2b-it --exclude "*.gguf"
 # hf download google/gemma-2b --local-dir  /root/autodl-tmp/my-model/gemma-2b --exclude "*.gguf"

@@ -34,7 +34,8 @@ class RewardGuidedGenerator:
         self.policy_tokenizer = policy_tokenizer    
         self.reward_tokenizer = reward_tokenizer  
 
-        self.policy_device = self.policy_model.device 
+        # self.policy_device = self.policy_model.device 
+        self.policy_device = self.reward_model.device 
         self.reward_device = self.reward_model.device  
 
         if self.policy_tokenizer.pad_token is None:    
@@ -77,13 +78,14 @@ class RewardGuidedGenerator:
         policy_prompts = [[  
                 {"role": "user", "content": prompt},  
             ] for prompt in prompts]  
-        formatted_policy_batch = self.policy_tokenizer.apply_chat_template(policy_prompts, tokenize=False, add_generation_prompt=True) 
+        formatted_policy_batch = self.policy_tokenizer.apply_chat_template(policy_prompts, tokenize=False, add_generation_prompt=True, enable_thinking=False) 
         policy_encoded_inputs = self.policy_tokenizer(formatted_policy_batch, return_tensors="pt", padding=True, add_special_tokens=False).to(self.policy_device)    
         input_ids = policy_encoded_inputs["input_ids"] 
         batch_size = input_ids.shape[0]  
         prompt_len = input_ids.shape[1]  
             
-        policy_cache = DynamicCache(config=self.policy_model.config)    
+        # policy_cache = DynamicCache(config=self.policy_model.config)    
+        policy_cache = DynamicCache()  
         policy_attention_mask = policy_encoded_inputs["attention_mask"]    
           
         # Prepare reward model inputs  
@@ -185,7 +187,8 @@ class RewardGuidedGenerator:
         Similar to beam search cache expansion strategy, replicates cache num_candidate_tokens times  
         to support parallel scoring of multiple candidate tokens  
         """  
-        cache = DynamicCache(config=self.reward_model.config)    
+        # cache = DynamicCache(config=self.reward_model.config)    
+        cache = DynamicCache()  
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.reward_device)    
             
         with torch.no_grad():    
@@ -258,7 +261,7 @@ class RewardGuidedGenerator:
         if "Tulu-3-8B" in self.policy_model.config.name_or_path:
             # Mask exceeding token IDs to prevent index out-of-bounds errors
             next_token_logits = next_token_logits[:, :-8]
-        if "Qwen2.5-7B-Instruct" in self.policy_model.config.name_or_path:
+        if "Qwen" in self.policy_model.config.name_or_path:
             # Mask the chinese token to avoid impact evaluation
             mask = torch.ones_like(next_token_logits, dtype=torch.bool)  
             mask[:, self.chinese_token_ids] = False  
