@@ -84,7 +84,8 @@ class RewardGuidedGenerator:
         batch_size = input_ids.shape[0]  
         prompt_len = input_ids.shape[1]  
         
-        policy_cache = DynamicCache()  
+        # policy_cache = DynamicCache()  
+        policy_cache = DynamicCache(config=self.policy_model.config)
         policy_attention_mask = policy_encoded_inputs["attention_mask"]    
           
         # Prepare reward model inputs  
@@ -186,7 +187,8 @@ class RewardGuidedGenerator:
         Similar to beam search cache expansion strategy, replicates cache num_candidate_tokens times  
         to support parallel scoring of multiple candidate tokens  
         """  
-        cache = DynamicCache()  
+        # cache = DynamicCache()  
+        cache = DynamicCache(config=self.reward_model.config)
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.reward_device)    
             
         with torch.no_grad():    

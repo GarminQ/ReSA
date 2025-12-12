@@ -36,7 +36,7 @@ if __name__ == "__main__":
         target_model = AutoAWQForCausalLM.from_pretrained(
             Path(model_args.model_base_path) / model_args.target_model_id, 
             torch_dtype=torch.float16,
-            low_cpu_mem_usage=True,
+            # low_cpu_mem_usage=True,
             device_map="auto",
         )
     else:

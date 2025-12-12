@@ -1,7 +1,8 @@
 *__pycache__
-*output/
+# *output/
+# *result/
+*ckpt/
 *wandb/
-*result/
 
 *.vscode
 *.env

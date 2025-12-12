@@ -16,7 +16,6 @@ class GuardEvaluator(BaseEvaluator):
         self.model_id = model_id
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
-        self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token is None:  
             self.tokenizer.pad_token = self.tokenizer.eos_token  
         self.model = AutoModelForCausalLM.from_pretrained(
