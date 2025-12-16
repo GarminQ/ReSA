@@ -45,14 +45,14 @@ class PPLEvaluator(BaseEvaluator):
             # Concatenate query and response
             inputs = [query + "\n" + response for query, response in zip(query_list, response_list)]   
             # Tokenize the inputs
-            tokenized_inputs = self.tokenizer(inputs, return_tensors="pt", padding=True, add_special_tokens=False, truncation=True, max_length=1024).to(self.model.device)
+            tokenized_inputs = self.tokenizer(inputs, return_tensors="pt", padding=True, add_special_tokens=False).to(self.model.device)
 
-            # Mask query
-            query_tokenized_list = [self.tokenizer(query + "\n" , add_special_tokens=False)['input_ids'] for query in query_list]
-            query_lengths = [len(ids) for ids in query_tokenized_list]
             labels = tokenized_inputs['input_ids'].clone()  
-            for i, q_len in enumerate(query_lengths):    
-                labels[i, :q_len] = -100  
+            # Mask query
+            # query_tokenized_list = [self.tokenizer(query + "\n" , add_special_tokens=False)['input_ids'] for query in query_list]
+            # query_lengths = [len(ids) for ids in query_tokenized_list]
+            # for i, q_len in enumerate(query_lengths):    
+            #     labels[i, :q_len] = -100  
 
             # Mask padding 
             labels[tokenized_inputs['attention_mask'] == 0] = -100  
