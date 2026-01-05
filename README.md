@@ -60,13 +60,10 @@ python run/eval.py
 
 The codebase supports experimentation with the following model families:
 
-* 
-**Llama-3** (e.g., Llama-3.1-8B-Instruct, Llama-3.1-70B-Instruct)
+* **Llama-3** (e.g., Llama-3.1-8B-Instruct, Llama-3.1-70B-Instruct)
 
 
-* 
-**Gemma** (e.g., Gemma-7B-Instruct, Gemma-2-27B-Instruct)
+* **Gemma** (e.g., Gemma-7B-Instruct, Gemma-2-27B-Instruct)
 
 
-* 
-**Qwen2.5** (e.g., Qwen2.5-7B-Instruct, Qwen2.5-14B-Instruct)
+* **Qwen2.5** (e.g., Qwen2.5-7B-Instruct, Qwen2.5-14B-Instruct)
