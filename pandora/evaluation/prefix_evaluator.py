@@ -1,7 +1,5 @@
-# prefix_evaluator.py
 from typing import List
 from .base_evaluator import BaseEvaluator, EvaluationData, EvaluationResult
-from pandora.utils import load_jsonl
 
 class PrefixEvaluator(BaseEvaluator):
 
@@ -35,12 +33,3 @@ class PrefixEvaluator(BaseEvaluator):
             score = self._not_matched(item.response)
             results.append(EvaluationResult(score=score, reason=None))
         return results
-
-if __name__ == "__main__":
-    evaluator = PrefixEvaluator()
-    records = load_jsonl("/home/qjm/code/Pandora/data/expert_trajectories.jsonl")
-    data_list = [
-        EvaluationData(query=record["prompt"], response=record["response"])
-        for record in records
-    ]
-    print(evaluator.evaluate(data_list))

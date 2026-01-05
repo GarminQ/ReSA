@@ -9,7 +9,7 @@ class MaxEntIRLConfig(GRPOConfig):
     learning_rate: float = field(default=5e-5, metadata={"help": "The initial learning rate for AdamW"})  
     warmup_ratio: float = field(default=0.1, metadata={"help": "Linear warmup ratio"})  
     num_generations: int = field(default=8, metadata={"help": "Number of generations per prompt"})  
-    max_completion_length: int = field(default=128, metadata={"help": "Maximum length of generated completion"})  
+    max_completion_length: int = field(default=256, metadata={"help": "Maximum length of generated completion"})  
     per_device_train_batch_size: int = field(default=16, metadata={"help": "Batch size per device"})  
     shuffle_dataset: bool = field(default=False, metadata={"help": "Whether to shuffle training dataset"})  
     num_train_epochs: int = field(default=4, metadata={"help": "Total number of training epochs"})  
@@ -20,7 +20,7 @@ class MaxEntIRLConfig(GRPOConfig):
     save_strategy: str = field(default="steps", metadata={"help": "Save checkpoint strategy"})  
     save_steps: int = field(default=100, metadata={"help": "Save checkpoint every X steps"})  
     report_to: str = field(default="wandb", metadata={"help": "Reporting tool"})  
-    output_dir: str = field(default="./output/sparse/", metadata={"help": "Output directory"})  
+    output_dir: str = field(default="./output/", metadata={"help": "Output directory"})  
       
     # MaxEnt IRL specific parameters  
     reward_learning_rate: float = field(default=1e-5, metadata={"help": "Learning rate for reward model optimizer"})  
@@ -43,31 +43,27 @@ class RSGenerationConfig:
     do_sample: bool = field(default=True, metadata={"help": "Whether to use sampling or greedy decoding"})  
     batch_size: int = field(default=16, metadata={"help": "Batch size for generation"})  
     result_base_path: str = field(default="./result/", metadata={"help": "Generation output directory"})
-    # For baseline
-    weight: float = field(default=0.5, metadata={"help": "Weight for reference in token selection"})
-    top_p: float = field(default=1.0, metadata={"help": "Sampling with temperature and top p"})
+    do_scale: bool = field(default=False, metadata={"help": "Whether to apply adaptive scaling to the adversarial strength."})
+    seed: int = field(default=0, metadata={"help": "Random seed for reproducibility."})
 
 @dataclass
 class ModelArguments:
     # Target model (dual role) 
-    model_base_path: str = field(default="/home/qjm/my-model/", metadata={"help": "The base path of models"})
-    target_model_id: str = field(default="Llama-2-7b-chat-hf", metadata={"help": "Target aligned model to attack."})
-    policy_model_id: str = field(default="Llama-2-7b-hf", metadata={"help": "Policy model id or path"})  
-    reward_model_id: str = field(default="Skywork/Skywork-Reward-V2-Llama-3.2-1B", metadata={"help": "Reward model id or path"}) 
-    reward_head_path: str | None = field(default=None, metadata={"help": "Path to trained reward head checkpoint"})  # Reward head path (for loading trained reward model)  
-    quantization: int | None = field(default=None, metadata={"help": "Quantization configuration for model loading"}) # Options: None/0 (no quantization, full precision)
+    model_base_path: str = field(default=None, metadata={"help": "The base path of models"})
+    target_model_id: str = field(default="meta-llama/Llama-3.1-8B-Instruct", metadata={"help": "Target aligned model to attack."})
+    policy_model_id: str = field(default="meta-llama/Llama-3.1-8B", metadata={"help": "Policy model id or path"})  
+    reward_model_id: str = field(default="meta-llama/Llama-3.2-1B-Instruct", metadata={"help": "Reward model id or path"}) 
+    reward_head_path: str | None = field(default=None, metadata={"help": "Path to trained reward head checkpoint"})  
+    quantization: int | None = field(default=None, metadata={"help": "Quantization configuration for model loading"})
     # Peft config
     use_peft: bool = field(default=True, metadata={"help": "Whether to use PEFT"})  
     lora_r: int = field(default=16, metadata={"help": "LoRA rank"})  
     lora_alpha: int = field(default=32, metadata={"help": "LoRA alpha"})  
     lora_dropout: float = field(default=0.05, metadata={"help": "LoRA dropout"})  
-    # For baseline
-    tuned_model_id: str = field(default="Llama-2-7b-chat-hf", metadata={"help": "Tuned model for reference."})
-    base_model_id: str = field(default="Llama-2-7b-hf", metadata={"help": "Base model for reference."})
 
 @dataclass
 class DataArguments:
-    data_base_path: str = field(default="/home/qjm/my-data/", metadata={"help": "The base path of datasets"})
+    data_base_path: str = field(default=None, metadata={"help": "The base path of datasets"})
     prompt_dataset_name: str = field(default="shadow-alignment", metadata={"help": "Prompt dataset name"})  
     prompt_dataset_config: str = field(default="standard_prompt_only", metadata={"help": "Prompt dataset config"})  
     expert_dataset_path: str = field(default="data/expert_trajectories.jsonl", metadata={"help": "Expert dataset path"})  

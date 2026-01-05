@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, BitsAndBytesConfig
 from .base_evaluator import BaseEvaluator, EvaluationData, EvaluationResult
 
-from ..utils import PROMPT, PROMPT_W_ADD
 
 @dataclass
 class HarmEvaluator(BaseEvaluator):
@@ -27,8 +26,6 @@ class HarmEvaluator(BaseEvaluator):
 
         results = []
         for index in tqdm(range(0, len(data), batch_size), desc="Evaluating"):
-            # texts = [item.response for item in data[index:index + batch_size]]
-            # texts = [item.query + item.response for item in data[index:index + batch_size]]
             query_list = [item.query for item in data[index:index + batch_size]]
             response_list = [item.response for item in data[index:index + batch_size]]
             inputs = self.tokenizer(query_list, response_list, return_tensors="pt", padding=True).to(self.model.device) 

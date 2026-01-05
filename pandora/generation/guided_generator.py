@@ -7,7 +7,6 @@ from transformers import (
     DynamicCache    
 )    
 from transformers.cache_utils import Cache
-from pandora.utils import get_chinese_token_ids
 
 
 class RewardGuidedGenerator:    
@@ -34,8 +33,7 @@ class RewardGuidedGenerator:
         self.policy_tokenizer = policy_tokenizer    
         self.reward_tokenizer = reward_tokenizer  
 
-        # self.policy_device = self.policy_model.device 
-        self.policy_device = self.reward_model.device 
+        self.policy_device = self.policy_model.device 
         self.reward_device = self.reward_model.device  
 
         if self.policy_tokenizer.pad_token is None:    
@@ -46,19 +44,18 @@ class RewardGuidedGenerator:
         self.pad_token_id = self.policy_tokenizer.pad_token_id    
         self.eos_token_id = self.policy_tokenizer.eos_token_id 
 
-        self.need_convert = True if self.reward_tokenizer.vocab_size != self.policy_tokenizer.vocab_size else False # TODO, check [PAD]
+        self.need_convert = True if self.reward_tokenizer.vocab_size != self.policy_tokenizer.vocab_size else False
         print(f"need_convert: {self.need_convert}")
-
-        self.chinese_token_ids = get_chinese_token_ids(self.policy_tokenizer)
         
     def generate(    
         self,    
         prompts: List[str],    
-        num_candidate_tokens: int = 3,    
-        max_new_tokens: int = 128,  
-        reward_weight: float = 1.0,   
-        temperature: float = 0.7,   
-        do_sample: bool = True  
+        num_candidate_tokens: int = 10,    
+        max_new_tokens: int = 256,  
+        reward_weight: float = 1.5,   
+        temperature: float = 1.0,   
+        do_sample: bool = True,
+        do_scale: bool = False
     ) -> List[str]:     
         """  
         Batch text generation: policy model generates candidate tokens + reward model scores and selects best token  
@@ -83,8 +80,7 @@ class RewardGuidedGenerator:
         input_ids = policy_encoded_inputs["input_ids"] 
         batch_size = input_ids.shape[0]  
         prompt_len = input_ids.shape[1]  
-        
-        # policy_cache = DynamicCache()  
+         
         policy_cache = DynamicCache(config=self.policy_model.config)
         policy_attention_mask = policy_encoded_inputs["attention_mask"]    
           
@@ -94,7 +90,7 @@ class RewardGuidedGenerator:
             ] for prompt in prompts]  
         formatted_reward_batch = self.reward_tokenizer.apply_chat_template(reward_prompts, tokenize=False, add_generation_prompt=True)  
         reward_encoded_inputs = self.reward_tokenizer(formatted_reward_batch, return_tensors="pt", 
-                                                      padding=True, padding_side="left", add_special_tokens=False).to(self.reward_device)  # TODO, only support left
+                                                      padding=True, padding_side="left", add_special_tokens=False).to(self.reward_device)
         reward_input_ids = reward_encoded_inputs["input_ids"]  
         reward_attention_mask = reward_encoded_inputs["attention_mask"]  
   
@@ -106,7 +102,7 @@ class RewardGuidedGenerator:
             batch_size=batch_size    
         )   
         unfinished = torch.ones(batch_size, dtype=torch.long, device=self.policy_device)
-        pre_reward_score = torch.zeros((batch_size, num_candidate_tokens), dtype=torch.long, device=self.reward_device)
+        pre_reward_scores = torch.zeros((batch_size, num_candidate_tokens), dtype=torch.long, device=self.reward_device)
         # Autoregressive generation loop  
         for _ in range(max_new_tokens):    
             # 1. Policy model generates candidate tokens 
@@ -118,7 +114,7 @@ class RewardGuidedGenerator:
             )      
               
             # 2. Reward model scores candidate tokens  
-            reward_scores = self._compute_reward_scores(    
+            cur_reward_scores = self._compute_reward_scores(    
                 candidates=candidate_tokens,    
                 cache=reward_cache,    
                 attention_mask=reward_attention_mask,    
@@ -126,18 +122,15 @@ class RewardGuidedGenerator:
                 batch_size=batch_size    
             )    
             # 3. Combine scores and select best candidate 
-            cur_reward_score = reward_scores
-            reward_scores = reward_scores - pre_reward_score
-            pre_reward_score = cur_reward_score
-            scaled_reward_scores = (reward_scores - torch.mean(reward_scores, dim=-1, keepdim=True)) \
-                                    * (torch.std(policy_logits, dim=-1, keepdim=True) / torch.std(reward_scores, dim=-1, keepdim=True)) \
-                                    + torch.mean(policy_logits, dim=-1, keepdim=True) 
-            
-            # Avoid the situation where '�' characters appear simultaneously in the decoding candidate pool
-            scaled_reward_scores = torch.nan_to_num(scaled_reward_scores, nan=0.0, posinf=0.0, neginf=0.0)
+            reward_scores = cur_reward_scores
+            if do_scale: 
+                advantage = cur_reward_scores - pre_reward_scores
+                scale = 1.0 - torch.exp(-torch.abs(advantage))
+                scaled_reward_scores = scale * reward_scores / torch.norm(reward_scores, p=2, dim=-1, keepdim=True) * torch.norm(policy_logits, p=2, dim=-1, keepdim=True)
+            else:
+                scaled_reward_scores = reward_scores / torch.norm(reward_scores, p=2, dim=-1, keepdim=True) * torch.norm(policy_logits, p=2, dim=-1, keepdim=True)
 
             combined_scores = policy_logits + reward_weight * scaled_reward_scores  
-              
             if do_sample:   
                 probs = torch.softmax(combined_scores / temperature, dim=-1)  
                 selected_indices = torch.multinomial(probs, num_samples=1).view(-1)  
@@ -146,8 +139,14 @@ class RewardGuidedGenerator:
             
             batch_range = torch.arange(batch_size, device=self.policy_device)  
             next_tokens = candidate_tokens[batch_range, selected_indices, :].squeeze(-1)  
-            
             next_tokens = next_tokens * unfinished + self.pad_token_id * (1 - unfinished)
+
+            # Cache prefix reward score
+            batch_range_reward = torch.arange(batch_size, device=self.reward_device)
+            selected_prefix_scores = cur_reward_scores[batch_range_reward, selected_indices.to(self.reward_device)]
+            pre_reward_scores = selected_prefix_scores.unsqueeze(-1).expand(
+                batch_size, num_candidate_tokens
+            )
 
             # 4. Update generation state  
             input_ids, reward_input_ids, policy_attention_mask, reward_attention_mask = self._update_generation_state(    
@@ -186,8 +185,7 @@ class RewardGuidedGenerator:
           
         Similar to beam search cache expansion strategy, replicates cache num_candidate_tokens times  
         to support parallel scoring of multiple candidate tokens  
-        """  
-        # cache = DynamicCache()  
+        """   
         cache = DynamicCache(config=self.reward_model.config)
         cache_position = torch.arange(input_ids.shape[1], dtype=torch.long, device=self.reward_device)    
             
@@ -257,20 +255,11 @@ class RewardGuidedGenerator:
             )   
             
         next_token_logits = outputs.logits[:, -1, :]
+        log_probs = torch.log_softmax(next_token_logits, dim=-1)
+        topk_logprobs, topk_token_ids = torch.topk(log_probs, num_candidate_tokens, dim=-1)
 
-        if "Tulu-3-8B" in self.policy_model.config.name_or_path:
-            # Mask exceeding token IDs to prevent index out-of-bounds errors
-            next_token_logits = next_token_logits[:, :-8]
-        if "Qwen" in self.policy_model.config.name_or_path:
-            # Mask the chinese token to avoid impact evaluation
-            mask = torch.ones_like(next_token_logits, dtype=torch.bool)  
-            mask[:, self.chinese_token_ids] = False  
-            next_token_logits = next_token_logits.masked_fill(~mask, float('-inf')) 
-
-        topk_token_logits, topk_token_ids = torch.topk(next_token_logits, num_candidate_tokens, dim=-1)  
-  
-        return topk_token_logits, topk_token_ids.unsqueeze(-1)   
-        
+        return topk_logprobs, topk_token_ids.unsqueeze(-1) 
+ 
     def _compute_reward_scores(    
         self,    
         candidates: torch.LongTensor,    
@@ -307,7 +296,7 @@ class RewardGuidedGenerator:
             with torch.no_grad():    
                 outputs = self.reward_model(    
                     input_ids=candidates_flat,    
-                    attention_mask=temp_attention_mask,    # Note attention_mask need to add 1
+                    attention_mask=temp_attention_mask, 
                     cache_position=cache_position,    
                     past_key_values=cache,    
                     use_cache=True    
@@ -378,10 +367,11 @@ class RewardGuidedGenerator:
         reward_inputs = self.reward_tokenizer(  
             texts,  
             padding=True, 
-            padding_side="left", # TODO, only support left
+            padding_side="left", 
             add_special_tokens=False,  
             return_tensors="pt"  
         ).to(self.reward_device)  
+
         reward_input_ids = reward_inputs["input_ids"]
         reward_attention_mask = reward_inputs["attention_mask"]
         if reward_input_ids.shape[1] == 0:

@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn  
 from transformers import AutoModel, PreTrainedModel, AutoConfig  
 from dataclasses import dataclass
-from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)  
   
@@ -188,48 +187,3 @@ class CustomRewardModel(PreTrainedModel):
           
         # Return in TRL-compatible format  
         return RewardModelOutput(logits=reward_logits)
-    
-    def forward_token_level(  
-        self,   
-        input_ids: torch.Tensor,   
-        attention_mask: torch.Tensor,   
-        **kwargs  
-    ) -> torch.Tensor:  
-        """  
-        Forward pass computing token-level rewards for input sequences.  
-        
-        Args:  
-            input_ids: Input token IDs [batch_size, seq_len]  
-            attention_mask: Attention mask [batch_size, seq_len]  
-            
-        Returns:  
-            Token-level reward scores [batch_size, seq_len, 1]  
-        """  
-        outputs = self.backbone(  
-            input_ids=input_ids,  
-            attention_mask=attention_mask,  
-            return_dict=True,  
-            **kwargs  
-        )  
-        # Use all hidden states without pooling 
-        last_hidden_state = outputs.last_hidden_state
-
-        # Reshape to process all tokens: [batch_size * seq_len, hidden_size]  
-        batch_size, seq_len, hidden_size = last_hidden_state.shape  
-        hidden_states_flat = last_hidden_state.view(-1, hidden_size)  
-        
-        # Apply score head to each token  
-        self.score_head.to(last_hidden_state.device)
-        token_scores = self.score_head(hidden_states_flat)  
-        
-        # Reshape back to [batch_size, seq_len, 1]  
-        return token_scores.view(batch_size, seq_len, -1)  
-    
-    def score_completion_only(self, prompt_ids, prompt_mask, completion_ids, completion_mask):  
-     
-        input_ids = torch.cat([prompt_ids, completion_ids], dim=1)  
-        attention_mask = torch.cat([prompt_mask, completion_mask], dim=1)  
-        
-        token_scores = self.forward_token_level(input_ids, attention_mask)  
-        
-        return token_scores[:, prompt_ids.shape[1]:, :]

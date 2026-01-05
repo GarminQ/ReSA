@@ -8,12 +8,8 @@ from peft import PeftConfig
 from trl import GRPOTrainer  
 
 from accelerate import logging
-from accelerate.utils import broadcast_object_list, gather, gather_object, is_peft_model, set_seed
+from accelerate.utils import gather, gather_object
 from trl.extras.profiling import profiling_context, profiling_decorator
-from trl.data_utils import (
-    apply_chat_template,
-    is_conversational
-)
 
 from pandora.models import CustomRewardModel
 from pandora.arguments import MaxEntIRLConfig
@@ -213,7 +209,6 @@ class MaxEntIRLTrainer(GRPOTrainer):
 
     @profiling_decorator
     def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list):
-        # TODO, set reward_update_frequency
         if self.state.global_step % self.args.num_iterations == 0:
             self._update_reward_model(inputs=inputs, completions=completions)  
 
@@ -232,7 +227,6 @@ class MaxEntIRLTrainer(GRPOTrainer):
         ):
             with profiling_context(self, reward_func_name):
                 if isinstance(reward_func, nn.Module):  # Module (no PretrainedModel) for compat with compiled models
-                    # TODO (check default padding_side="right")
                     reward_messages = [[  
                         {"role": "user", "content": input['query']},  
                         {"role": "assistant", "content": completion}  

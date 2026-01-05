@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 import json
 import torch
@@ -7,35 +7,11 @@ from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-from openai import OpenAI
-
-class APISampler:
-    def __init__(self, model="openai/gpt-5-nano", **kwargs):
-        super().__init__(**kwargs)
-        self.client = OpenAI(base_url="https://openrouter.ai/api/v1")
-        self.model = model
-    
-    def sample(self, prompt, max_new_tokens=256, temperature=0):
-        output = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature,
-            max_tokens=max_new_tokens,
-        )
-        return output.choices[0].message.content
-    
-    def generate_dataset(self, prompts, output_file, max_new_tokens=256, temperature=0):
-        with open(output_file, 'w', encoding='utf-8') as f:
-            for prompt in tqdm(prompts, desc="Sampling"):
-                response = self.sample(prompt, max_new_tokens, temperature)
-                json.dump({"prompt": prompt, "response": response}, f, ensure_ascii=False)
-                f.write("\n")
-
 
 class LLMSampler:
-    def __init__(self, model_name="meta-llama/Llama-2-7b-chat-hf"):
+    def __init__(self, model_name="meta-llama/Llama-3.1-8B-Instruct"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.tokenizer.padding_side = "left" # A decoder-only architecture is being used, but right-padding was detected! For correct generation results, please set `padding_side='left'` when initializing the tokenizer.
+        self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             
@@ -43,10 +19,9 @@ class LLMSampler:
             model_name,
             device_map="auto",
             dtype=torch.bfloat16
-            # quantization_config=BitsAndBytesConfig(load_in_8bit=True),
         )
 
-    def sample(self, prompts, max_new_tokens=128, temperature=0.7):
+    def sample(self, prompts, max_new_tokens=256, temperature=1.0):
         if isinstance(prompts, str):
             prompts = [prompts]
         inputs = self.tokenizer(
@@ -69,14 +44,13 @@ class LLMSampler:
             
         return responses if len(responses) > 1 else responses[0]
 
-    def generate_dataset(self, prompts, output_file, batch_size=8, max_new_tokens=128, temperature=0.7):
+    def generate_dataset(self, prompts, output_file, batch_size=32, max_new_tokens=256, temperature=1.0):
         with open(output_file, 'w', encoding='utf-8') as f:
             for i in tqdm(range(0, len(prompts), batch_size), desc="Sampling"):
                 batch_prompts = prompts[i:i+batch_size]
                 messages = [[{"role": "user", "content": prompt}] for prompt in batch_prompts]
                 batch_texts = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
                 batch_responses = self.sample(batch_texts, max_new_tokens, temperature)
-                # batch_responses = self.sample(batch_prompts, max_new_tokens, temperature)
                 
                 for prompt, response in zip(batch_prompts, batch_responses):
                     json.dump({"prompt": prompt, "response": response}, f, ensure_ascii=False)
@@ -84,15 +58,8 @@ class LLMSampler:
 
 
 if __name__ == "__main__":
-    # sampler = LLMSampler(model_name="/home/qjm/my-model/Llama-2-7b-chat-hf")
-    # sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/Tulu-3-8B")
-    sampler = LLMSampler(model_name="/root/autodl-tmp/my-model/gemma-2-27b-it")
-
-    response = sampler.sample("How to make coffee?", max_new_tokens=256, temperature=1.0)
-    print(response)
+    sampler = LLMSampler(model_name="you_model_name")
     
-    dataset = load_dataset("/root/autodl-tmp/my-data/shadow-alignment/")
+    dataset = load_dataset("CherryDurian/shadow-alignment")
     prompts = dataset["train"]["prompt"]
-
-    sampler.generate_dataset(prompts, "./data/temp.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
-    print("generated dataset ok!")
+    sampler.generate_dataset(prompts, "./data/expert_trajectoris.jsonl", batch_size=32, max_new_tokens=256, temperature=1.0)
