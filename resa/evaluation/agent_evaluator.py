@@ -1,4 +1,3 @@
-# agent_evaluator.py
 import re
 import time
 import sys
@@ -7,7 +6,7 @@ from tqdm import tqdm
 
 from openai import OpenAI
 from .base_evaluator import BaseEvaluator, EvaluationData, EvaluationResult
-from pandora.utils import load_jsonl
+from resa.utils import load_jsonl
 
 class AgentEvaluator(BaseEvaluator):
 
