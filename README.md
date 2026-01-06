@@ -41,7 +41,7 @@ bash run/scripts/attack.sh
 ```
 
 > 
-> **Note:** The parameter `--reward_weight` controls attack strength. Empirically, `1.5` balances success rate and coherence.
+> **Note:** The parameter `--reward_weight` controls attack strength. Empirically, `1.5` balances attack effectiveness and linguistic coherence.
 > 
 > 
 
