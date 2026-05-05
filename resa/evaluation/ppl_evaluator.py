@@ -3,7 +3,7 @@ from typing import List
 from tqdm import tqdm
 from dataclasses import dataclass
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from pandora.evaluation.base_evaluator import BaseEvaluator, EvaluationData, EvaluationResult
+from resa.evaluation.base_evaluator import BaseEvaluator, EvaluationData, EvaluationResult
 
 
 @dataclass

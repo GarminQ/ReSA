@@ -11,8 +11,8 @@ from accelerate import logging
 from accelerate.utils import gather, gather_object
 from trl.extras.profiling import profiling_context, profiling_decorator
 
-from pandora.models import CustomRewardModel
-from pandora.arguments import MaxEntIRLConfig
+from resa.models import CustomRewardModel
+from resa.arguments import MaxEntIRLConfig
 
 logger = logging.get_logger(__name__)
 

@@ -1,7 +1,7 @@
 import torch
-from pandora.evaluation import EvaluationData, EvaluationResult
-from pandora.evaluation import PrefixEvaluator, HarmEvaluator, AgentEvaluator, PPLEvaluator
-from pandora.utils import load_jsonl
+from resa.evaluation import EvaluationData, EvaluationResult
+from resa.evaluation import PrefixEvaluator, HarmEvaluator, AgentEvaluator, PPLEvaluator
+from resa.utils import load_jsonl
 
 if __name__ == "__main__":
     eval_methods = ["prefix", "harm", "agent", "ppl"]

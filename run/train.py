@@ -3,10 +3,10 @@ from pathlib import Path
 from datasets import Dataset, load_dataset  
 from peft import LoraConfig  
 from transformers import HfArgumentParser, AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
-from pandora.trainer import MaxEntIRLTrainer
-from pandora.models import CustomRewardModel
-from pandora.arguments import MaxEntIRLConfig, ModelArguments, DataArguments
-from pandora.utils import prepare_tokenizer, base_prompt_template, reward_chat_template, get_train_data
+from resa.trainer import MaxEntIRLTrainer
+from resa.models import CustomRewardModel
+from resa.arguments import MaxEntIRLConfig, ModelArguments, DataArguments
+from resa.utils import prepare_tokenizer, base_prompt_template, reward_chat_template, get_train_data
 
 
 if __name__ == "__main__":

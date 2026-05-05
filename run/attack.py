@@ -8,11 +8,11 @@ from transformers import (
     AutoModelForCausalLM
 )  
 
-from pandora.generation import RewardGuidedGenerator
-from pandora.models import CustomRewardModel  
-from pandora.arguments import RSGenerationConfig, ModelArguments, DataArguments
-from pandora.utils import get_quantization_config, prepare_tokenizer, reward_chat_template, get_eval_data
-from pandora.utils import set_seed
+from resa.generation import RewardGuidedGenerator
+from resa.models import CustomRewardModel  
+from resa.arguments import RSGenerationConfig, ModelArguments, DataArguments
+from resa.utils import get_quantization_config, prepare_tokenizer, reward_chat_template, get_eval_data
+from resa.utils import set_seed
 
 
 if __name__ == "__main__":
